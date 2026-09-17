@@ -1,32 +1,40 @@
-"""DeepAgents research graph, served by `agentseek-api dev`.
+"""PRD→BDD→SDD document-generation graph, served by `agentseek-api dev`.
 
-This module is pure deepagents + LangChain — no agentseek dependency. It
-mirrors the upstream ``langchain-ai/deepagents/examples/deep_research/agent.py``
-with these differences:
-- ``init_chat_model`` is called with explicit ``model_provider=...`` so the
-  generated app can target OpenAI, Anthropic, or Gemini from the same `.env`.
-- The orchestrator and sub-agent constants are wired to cookiecutter
-  variables so they can be tuned at scaffold time.
+Pure deepagents + LangChain. The orchestrator delegates to three phase
+sub-agents (PRD / BDD / SDD); documents land on the real disk under
+DOCS_WORKSPACE_DIR via FilesystemBackend.
 """
 
 from __future__ import annotations
 
 import os
 import warnings
-from datetime import datetime
+from datetime import datetime  # noqa: F401 - kept per SDD brief head
+from pathlib import Path
 
 from deepagents import create_deep_agent
+from deepagents.backends import FilesystemBackend
 from dotenv import load_dotenv
 from langchain.chat_models import init_chat_model
 
 from research_deepagent.prompts import (
-    RESEARCH_WORKFLOW_INSTRUCTIONS,
-    RESEARCHER_INSTRUCTIONS,
-    SUBAGENT_DELEGATION_INSTRUCTIONS,
+    BDD_AGENT_INSTRUCTIONS,
+    ORCHESTRATOR_INSTRUCTIONS,
+    PRD_AGENT_INSTRUCTIONS,
+    SDD_AGENT_INSTRUCTIONS,
+    TASK_DESCRIPTION_PREFIX,
 )
-from research_deepagent.tools import tavily_search, think_tool
+from research_deepagent.tools import tavily_search
+from research_deepagent.validators.lc_tools import (
+    validate_traceability,
+    validate_user_stories,
+)
 
+# PENCLI_MCP_URL is read at mcp_tools import time, so .env must be loaded
+# before the import below (controller-mandated import order).
 load_dotenv()
+
+from research_deepagent.mcp_tools import load_pencli_tools  # noqa: E402
 
 SUPPORTED_MODEL_PROVIDERS = {
     "openai": "openai",
@@ -103,32 +111,6 @@ if _stream_chunk_timeout_env not in (None, ""):
     else:
         STREAM_CHUNK_TIMEOUT_S = None if _parsed_timeout <= 0 else _parsed_timeout
 
-MAX_CONCURRENT_RESEARCH_UNITS = 3
-MAX_RESEARCHER_ITERATIONS = 3
-
-current_date = datetime.now().strftime("%Y-%m-%d")
-
-INSTRUCTIONS = (
-    RESEARCH_WORKFLOW_INSTRUCTIONS
-    + "\n\n"
-    + "=" * 80
-    + "\n\n"
-    + SUBAGENT_DELEGATION_INSTRUCTIONS.format(
-        max_concurrent_research_units=MAX_CONCURRENT_RESEARCH_UNITS,
-        max_researcher_iterations=MAX_RESEARCHER_ITERATIONS,
-    )
-)
-
-research_sub_agent = {
-    "name": "research-agent",
-    "description": (
-        "Delegate research to the sub-agent researcher. "
-        "Only give this researcher one topic at a time."
-    ),
-    "system_prompt": RESEARCHER_INSTRUCTIONS.format(date=current_date),
-    "tools": [tavily_search, think_tool],
-}
-
 MODEL_INIT_KWARGS: dict[str, object] = {
     "model": DEFAULT_MODEL,
     "model_provider": MODEL_PROVIDER,
@@ -152,9 +134,49 @@ elif MODEL_PROVIDER == "google_genai":
 
 model = init_chat_model(**MODEL_INIT_KWARGS)
 
+WORKSPACE_ROOT = Path(os.getenv("DOCS_WORKSPACE_DIR", "./workspace")).resolve()
+WORKSPACE_ROOT.mkdir(parents=True, exist_ok=True)
+
+pencli_tools = load_pencli_tools()
+if pencli_tools:
+    print(f"[agent] pencli MCP tools loaded: {[t.name for t in pencli_tools]}")
+else:
+    print("[agent] running without pencli MCP tools (degraded)")
+
+prd_agent = {
+    "name": "prd-agent",
+    "description": (
+        "PRD 阶段 sub-agent：根据用户需求做头脑风暴并产出正式 PRD。"
+        "委派时必须提供项目 slug 和用户需求（或修改意见）。"
+    ),
+    "system_prompt": PRD_AGENT_INSTRUCTIONS,
+    "tools": [tavily_search, *pencli_tools],
+}
+
+bdd_agent = {
+    "name": "bdd-agent",
+    "description": (
+        "BDD 阶段 sub-agent：依据已确认的 PRD 产出严格闭合的用户故事并用"
+        "校验器强制闭合规则。委派时必须提供项目 slug。"
+    ),
+    "system_prompt": BDD_AGENT_INSTRUCTIONS,
+    "tools": [validate_user_stories],
+}
+
+sdd_agent = {
+    "name": "sdd-agent",
+    "description": (
+        "SDD 阶段 sub-agent：依据已确认的 BDD 用户故事逐条产出系统设计文档"
+        "与追溯矩阵并用校验器检查。委派时必须提供项目 slug。"
+    ),
+    "system_prompt": SDD_AGENT_INSTRUCTIONS,
+    "tools": [validate_traceability],
+}
+
 graph = create_deep_agent(
     model=model,
-    tools=[tavily_search, think_tool],
-    system_prompt=INSTRUCTIONS,
-    subagents=[research_sub_agent],
+    tools=[],
+    system_prompt=ORCHESTRATOR_INSTRUCTIONS,
+    subagents=[prd_agent, bdd_agent, sdd_agent],
+    backend=FilesystemBackend(root_dir=WORKSPACE_ROOT),
 )
