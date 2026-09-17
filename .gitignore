@@ -13,5 +13,8 @@ dist/
 node_modules/
 frontend/dist/
 
+# Generated documents (per-project workspaces)
+workspace/
+
 # Env
 .env
