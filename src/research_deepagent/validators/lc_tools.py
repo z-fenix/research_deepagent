@@ -7,10 +7,12 @@ FilesystemBackend root), so the agent can pass its usual relative paths.
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 
 from langchain_core.tools import tool
 
+from research_deepagent.validators.traceability import validate_traceability_docs
 from research_deepagent.validators.user_stories import validate_user_stories_docs
 
 
@@ -38,4 +40,28 @@ def validate_user_stories(prd_path: str, bdd_path: str) -> str:
         校验结果摘要：通过则 ✅，否则逐条列出 (规则, 位置, 说明)。
     """
     result = validate_user_stories_docs(read_text(prd_path), read_text(bdd_path))
+    return result.summary()
+
+
+@tool(parse_docstring=True)
+def validate_traceability(workspace_dir: str) -> str:
+    """校验 REQ↔US↔Scenario↔TestCase 四层追溯完整性，返回结构化违规列表。
+
+    Args:
+        workspace_dir: 项目工作目录（相对工作区根，如 <slug>）。
+
+    Returns:
+        校验结果摘要：通过则 ✅，否则逐条列出 (规则, 位置, 说明)。
+    """
+    base = resolve_workspace_path(workspace_dir)
+    prd_text = (base / "prd" / "prd.md").read_text(encoding="utf-8")
+    bdd_text = (base / "bdd" / "user_stories.md").read_text(encoding="utf-8")
+    sdd_texts: dict[str, str] = {}
+    for sdd_file in sorted((base / "sdd").glob("sdd-*.md")):
+        match = re.fullmatch(r"sdd-(US-[a-z0-9]+(?:-[a-z0-9]+)*-\d{3})\.md", sdd_file.name)
+        if match:
+            sdd_texts[match.group(1)] = sdd_file.read_text(encoding="utf-8")
+    trace_path = base / "sdd" / "traceability.md"
+    trace_text = trace_path.read_text(encoding="utf-8") if trace_path.exists() else None
+    result = validate_traceability_docs(prd_text, bdd_text, sdd_texts, trace_text)
     return result.summary()
