@@ -18,3 +18,7 @@ workspace/
 
 # Env
 .env
+
+# Runtime traces & SDD scratch
+trace/
+.superpowers/
