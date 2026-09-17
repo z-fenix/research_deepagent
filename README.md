@@ -1,69 +1,61 @@
-# Research DeepAgent
+# PRD→BDD→SDD DeepAgent
 
-Pure DeepAgents research agent scaffolded with `agentseek create deepagents/research`.
+基于 DeepAgents 的文档生成 Agent：用户提出产品需求后，按 **PRD → BDD → SDD** 三阶段
+生成设计文档，阶段之间有人工确认门禁。文档直接写入 `DOCS_WORKSPACE_DIR`（默认
+`./workspace`）下的真实磁盘目录。
 
-The backend serves a `create_deep_agent(...)` graph through `agentseek-api dev`.
-The frontend streams user messages, tool calls, optional sub-agent delegation,
-DeepAgents todos, and the final markdown answer. AgentSeek is only used as an
-external template and lifecycle tool; this project declares local behavior in
-`.agentseek/lifecycle.toml`.
+- **PRD**：头脑风暴（≥3 个候选方向 + 取舍记录）→ 正式 PRD（REQ-xxx 需求 ID + 术语表）
+- **BDD**：严格闭合的用户故事 —— 可追溯、三段式、Gherkin 四分支全覆盖（@normal/
+  @alternative/@exception/@boundary）、词汇闭合，由确定性校验器强制执行
+- **SDD**：每条用户故事一份设计文档（边界定义 / 接口契约 / 校验逻辑 / 异常边界处理 /
+  测试审查定义）+ REQ↔US↔Scenario↔TestCase 四层追溯矩阵
 
-## Quickstart
+后端为 `create_deep_agent(...)` 图，经 `agentseek-api dev` 托管；前端流式展示
+todos、工具卡片与最终 markdown 回复。AgentSeek 仅作为外部模板与生命周期工具，
+本项目行为声明在 `.agentseek/lifecycle.toml`。
+
+## 快速开始
 
 ```bash
 cp .env.example .env
 cp frontend/.env.example frontend/.env
-$EDITOR .env
+$EDITOR .env          # 填模型凭据；可选填 PENCLI_MCP_URL
 
 uvx agentseek task sync
 uvx agentseek task frontend
-
-uvx agentseek info
-uvx agentseek doctor
-uvx agentseek dev --dry-run
 uvx agentseek dev
 ```
 
-Use `uvx agentseek task --list` to see the one-shot setup tasks exposed by the
-lifecycle spec. After `uvx agentseek dev` starts both processes, run
-`uvx agentseek doctor --live` from another terminal to check the declared local
-service endpoints.
+- LangGraph 后端默认 `http://127.0.0.1:2024`
+- 前端默认 `http://127.0.0.1:5174`
 
-The LangGraph backend defaults to `http://127.0.0.1:2024`.
-The frontend defaults to `http://127.0.0.1:5174`.
+## 冒烟测试
 
-## Environment
-
-`agent.py` uses `AGENTSEEK_MODEL_PROVIDER` to choose a native LangChain provider
-integration for OpenAI, Anthropic, or Gemini. Fill only the credential block for
-the selected provider in `.env`. If that provider's base URL is blank, LangChain
-uses the official endpoint.
-
-If you change `AGENTSEEK_MODEL_PROVIDER`, also change `AGENTSEEK_MODEL` to a
-model served by that provider. The generated app defaults to provider `openai`
-and model `gpt-4.1-mini`, so leaving `OPENAI_API_BASE` blank targets the
-official OpenAI endpoint. `AGENTSEEK_MODEL` can also be supplied through the
-compatibility aliases `DEEPAGENTS_MODEL` or `BUB_MODEL`.
-
-`TAVILY_API_KEY` is required for the `tavily_search` tool. The lifecycle spec
-checks that one provider API key exists through `OPENAI_API_KEY` plus the
-`ANTHROPIC_API_KEY` and `GOOGLE_API_KEY` aliases; it does not validate that the
-key matches the selected provider.
-
-`frontend/.env` only controls the browser app's LangGraph URL and Vite port.
-
-## Smoke test
-
-Open `http://127.0.0.1:5174` and ask:
+打开 `http://127.0.0.1:5174`，输入：
 
 ```text
-Research what LangGraph 1.0 added vs 0.x. Cite sources.
+我想做一个团队任务看板应用
 ```
 
-Expected behavior:
+预期行为：
 
-- A live **Research plan** todo panel appears when the agent writes todos.
-- Tool cards appear for `tavily_search` and, when the model delegates,
-  `task` as a "Sub-agent: research-agent" card.
-- Each card expands while running, then collapses after its result lands.
-- The final assistant response renders as markdown with linked citations.
+- 出现 **PRD / BDD / SDD** 三个 todo 项
+- prd-agent 产出 `workspace/team-task-board/prd/brainstorm.md` 与 `prd.md` 后，
+  agent 汇报摘要并停下等待确认
+- 回复「确认」→ bdd-agent 产出用户故事（校验通过）→ 再次门禁
+- 回复「确认」→ sdd-agent 产出各故事 SDD 与追溯矩阵 → 完成清单
+- 任何阶段回复修改意见 → 仅该阶段重跑修订
+
+## 环境变量
+
+| 变量 | 说明 |
+|---|---|
+| `DOCS_WORKSPACE_DIR` | 文档工作区根目录，默认 `./workspace` |
+| `PENCLI_MCP_URL` | pencli 设计 MCP 的 streamable-http 地址；留空则降级运行 |
+| 其余 | 模型 provider 与凭据、Tavily key 同原模板（见 `.env.example`） |
+
+## 测试
+
+```bash
+uv run pytest -q
+```
