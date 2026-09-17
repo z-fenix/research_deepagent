@@ -93,3 +93,18 @@ When 提交
 def test_constants():
     assert set(BRANCH_TAGS) == {"@normal", "@alternative", "@exception", "@boundary"}
     assert "TBD" in FORBIDDEN_WORDS and "等等" in FORBIDDEN_WORDS
+
+
+def test_hyphenated_epic_story_parses():
+    text = """## US-user-auth-001
+- **Covers**: REQ-001
+- **As a** 注册用户
+- **I want** 使用邮箱和密码登录
+- **So that** 我能访问我的账户
+"""
+    assert parse_stories(text)[0].story_id == "US-user-auth-001"
+
+
+def test_uppercase_epic_not_matched():
+    text = "## US-AUTH-001\n- **Covers**: REQ-001\n"
+    assert parse_stories(text) == []

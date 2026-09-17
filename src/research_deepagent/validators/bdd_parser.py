@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-STORY_HEADER_RE = re.compile(r"^##\s+(US-[A-Za-z0-9]+-\d{3})\s*$", re.MULTILINE)
+STORY_HEADER_RE = re.compile(r"^##\s+(US-[a-z0-9]+(?:-[a-z0-9]+)*-\d{3})\s*$", re.MULTILINE)
 COVERS_RE = re.compile(r"^- \*\*Covers\*\*[：:]\s*(.+)$", re.MULTILINE)
 REQ_REF_RE = re.compile(r"REQ-\d{3}")
 AS_A_RE = re.compile(r"^- \*\*As a\*\*[：:]?\s*(.+)$", re.MULTILINE)
