@@ -106,25 +106,29 @@ def validate_traceability_docs(
     if trace_text is None:
         violations.append(Violation("T5", None, "缺少 sdd/traceability.md 追溯矩阵"))
     else:
-        req_covered_by_tc = False
+        matrix_reqs: set[str] = set()
         for req, story_id, scenario_name, tc in TRACE_ROW_RE.findall(trace_text):
+            row_valid = True
             if story_id not in story_ids:
                 violations.append(Violation("T5", story_id, f"追溯矩阵引用了不存在的 {story_id}"))
-                continue
-            scenario_name = strip_scenario_tags(scenario_name)
-            if scenario_name not in scenarios_by_story.get(story_id, []):
-                violations.append(
-                    Violation("T5", story_id, f"追溯矩阵引用了不存在的场景 '{scenario_name}'")
-                )
-            if tc not in {r.tc_id for r in sdd_refs.get(story_id, [])}:
-                violations.append(Violation("T5", story_id, f"追溯矩阵引用了不存在的 {tc}"))
-            if req in reqs:
-                req_covered_by_tc = True
+                row_valid = False
+            else:
+                scenario_name = strip_scenario_tags(scenario_name)
+                if scenario_name not in scenarios_by_story.get(story_id, []):
+                    violations.append(
+                        Violation("T5", story_id, f"追溯矩阵引用了不存在的场景 '{scenario_name}'")
+                    )
+                    row_valid = False
+                if tc not in {r.tc_id for r in sdd_refs.get(story_id, [])}:
+                    violations.append(Violation("T5", story_id, f"追溯矩阵引用了不存在的 {tc}"))
+                    row_valid = False
+            if row_valid and req in reqs:
+                matrix_reqs.add(req)
         for row_req in set(re.findall(r"REQ-\d{3}", trace_text)):
             if row_req not in reqs:
                 violations.append(Violation("T5", None, f"追溯矩阵引用了不存在的 {row_req}"))
         # T6: every REQ reaches at least one TestCase through the matrix
-        if reqs and not req_covered_by_tc:
-            violations.append(Violation("T6", None, "没有任何 REQ 通过追溯矩阵关联到测试用例"))
+        for req in sorted(reqs - matrix_reqs):
+            violations.append(Violation("T6", None, f"{req} 在追溯矩阵中没有关联到测试用例的行"))
 
     return ValidationResult(violations=violations)

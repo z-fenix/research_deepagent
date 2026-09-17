@@ -104,6 +104,12 @@ def test_role_not_in_glossary():
     assert any(v.rule == "B7" for v in result.violations)
 
 
+def test_empty_glossary_is_violation():
+    prd_no_glossary = "## 功能需求\n### REQ-001：登录\n"
+    result = validate_user_stories_docs(prd_no_glossary, GOOD_BDD)
+    assert any(v.rule == "B7" for v in result.violations)
+
+
 def test_forbidden_word():
     bad = GOOD_BDD + "\n此故事 TBD。\n"
     result = validate_user_stories_docs(PRD, bad)

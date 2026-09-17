@@ -86,3 +86,9 @@ def test_trace_row_unknown_story():
 def test_missing_trace_file():
     result = validate_traceability_docs(PRD, BDD, GOOD_SDD, None)
     assert any(v.rule == "T5" for v in result.violations)
+
+
+def test_t6_requires_every_req():
+    prd = PRD + "\n### REQ-002：找回密码\n"
+    result = validate_traceability_docs(prd, BDD, GOOD_SDD, GOOD_TRACE)
+    assert any(v.rule == "T6" and "REQ-002" in v.message for v in result.violations)

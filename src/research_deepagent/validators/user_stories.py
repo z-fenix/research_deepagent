@@ -31,6 +31,11 @@ def validate_user_stories_docs(prd_text: str, bdd_text: str) -> ValidationResult
     if not stories:
         violations.append(Violation("B4", None, "BDD 文档中没有解析到任何用户故事"))
 
+    if not glossary:
+        violations.append(
+            Violation("B7", None, "PRD 缺少术语表或术语表为空，无法校验角色闭合")
+        )
+
     for story in stories:
         if not (story.as_a and story.i_want and story.so_that):
             violations.append(Violation("B1", story.story_id, "缺少 As a / I want / So that 三段式"))
