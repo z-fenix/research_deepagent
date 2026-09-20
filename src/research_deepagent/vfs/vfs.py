@@ -12,13 +12,20 @@ from deepagents.backends.protocol import (
     DeleteResult,
     EditResult,
     FileData,
+    FileDownloadResponse,
     FileInfo,
+    FileUploadResponse,
+    GlobResult,
+    GrepResult,
     LsResult,
     ReadResult,
     WriteResult,
 )
 from deepagents.backends.utils import (
+    InvalidGlobPatternError,
+    _glob_search_files,
     create_file_data,
+    grep_matches_from_files,
     perform_string_replacement,
     slice_read_response,
     update_file_data,
@@ -155,3 +162,101 @@ class VirtualFileSystem(BackendProtocol):
         for key in to_delete:
             self.engine.delete(key)
         return DeleteResult(path=file_path)
+
+    # ------------------------------------------------------------------
+    # 搜索
+    # ------------------------------------------------------------------
+
+    def grep(
+        self,
+        pattern: str,
+        path: str | None = None,
+        glob: str | None = None,
+        *,
+        max_count: int | None = None,
+    ) -> GrepResult:
+        return grep_matches_from_files(
+            self._snapshot(),
+            pattern,
+            path if path is not None else "/",
+            glob,
+            max_count=max_count,
+        )
+
+    def glob(self, pattern: str, path: str | None = None) -> GlobResult:
+        try:
+            result = _glob_search_files(self._snapshot(), pattern, path)
+        except InvalidGlobPatternError as exc:
+            return GlobResult(error=str(exc))
+        if result == "No files found":
+            return GlobResult(matches=[])
+        infos = []
+        for matched_path in result.split("\n"):
+            file_data = self.engine.get(matched_path)
+            infos.append(
+                {
+                    "path": matched_path,
+                    "is_dir": False,
+                    "size": len(file_data["content"]) if file_data else 0,
+                    "modified_at": file_data.get("modified_at", "") if file_data else "",
+                }
+            )
+        return GlobResult(matches=infos)
+
+    # ------------------------------------------------------------------
+    # 批量上传 / 下载
+    # ------------------------------------------------------------------
+
+    def upload_files(
+        self, files: list[tuple[str, bytes]]
+    ) -> list[FileUploadResponse]:
+        responses: list[FileUploadResponse] = []
+        for path, content in files:
+            try:
+                file_path = self._validate(path)
+            except ValueError:
+                responses.append(FileUploadResponse(path=path, error="invalid_path"))
+                continue
+            try:
+                text = content.decode("utf-8")
+            except UnicodeDecodeError:
+                responses.append(
+                    FileUploadResponse(path=path, error="unsupported_content_encoding")
+                )
+                continue
+            existing = self.engine.get(file_path)
+            file_data = (
+                update_file_data(existing, text)
+                if existing is not None
+                else create_file_data(text)
+            )
+            self.engine.put(file_path, file_data)
+            responses.append(FileUploadResponse(path=path, error=None))
+        return responses
+
+    def download_files(self, paths: list[str]) -> list[FileDownloadResponse]:
+        responses: list[FileDownloadResponse] = []
+        for path in paths:
+            try:
+                file_path = self._validate(path)
+            except ValueError:
+                responses.append(
+                    FileDownloadResponse(path=path, content=None, error="invalid_path")
+                )
+                continue
+            file_data = self.engine.get(file_path)
+            if file_data is None:
+                responses.append(
+                    FileDownloadResponse(
+                        path=path, content=None, error="file_not_found"
+                    )
+                )
+                continue
+            responses.append(
+                FileDownloadResponse(
+                    path=path,
+                    content=file_data["content"].encode("utf-8"),
+                    error=None,
+                )
+            )
+        return responses
