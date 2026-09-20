@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import os
 import sqlite3
 import threading
 from datetime import UTC, datetime
@@ -114,9 +115,13 @@ class SqliteEngine(StorageEngine):
 class DiskEngine(StorageEngine):
     """真实目录树存储：虚拟路径映射为 ``<root>/<path>`` 下的普通文件。
 
-    落盘格式与 deepagents ``FilesystemBackend`` 兼容（普通文本文件），
-    时间戳从 ``os.stat`` 派生。
+    落盘格式与 deepagents ``FilesystemBackend`` 兼容（普通文本文件）。
+    ``created_at`` 通过 user xattr（``user.vfs.created_at``）随文件持久化，
+    覆盖写入后保持不变；文件系统不支持 xattr 时静默退回 ``st_ctime`` 派生。
+    ``modified_at`` 始终从 ``st_mtime`` 派生。
     """
+
+    _XATTR_CREATED_AT = b"user.vfs.created_at"
 
     def __init__(self, root: Path) -> None:
         self._root = Path(root).resolve()
@@ -129,6 +134,22 @@ class DiskEngine(StorageEngine):
             raise ValueError(msg)
         return full
 
+    def _read_created_at(self, target: Path, stat: os.stat_result) -> str:
+        fallback = datetime.fromtimestamp(stat.st_ctime, tz=UTC).isoformat()
+        try:
+            raw = os.getxattr(target, self._XATTR_CREATED_AT)
+        except OSError:
+            return fallback
+        return raw.decode("utf-8", errors="replace") or fallback
+
+    def _write_created_at(self, target: Path, created_at: str | None) -> None:
+        if not created_at:
+            return
+        try:
+            os.setxattr(target, self._XATTR_CREATED_AT, created_at.encode("utf-8"))
+        except OSError:
+            pass  # 文件系统不支持 user xattr 时退回 st_ctime 派生
+
     def get(self, path: str) -> FileData | None:
         target = self._resolve(path)
         if not target.is_file():
@@ -137,7 +158,7 @@ class DiskEngine(StorageEngine):
         return FileData(
             content=target.read_text(encoding="utf-8"),
             encoding="utf-8",
-            created_at=datetime.fromtimestamp(stat.st_ctime, tz=UTC).isoformat(),
+            created_at=self._read_created_at(target, stat),
             modified_at=datetime.fromtimestamp(stat.st_mtime, tz=UTC).isoformat(),
         )
 
@@ -145,6 +166,7 @@ class DiskEngine(StorageEngine):
         target = self._resolve(path)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(file_data["content"], encoding="utf-8")
+        self._write_created_at(target, file_data.get("created_at"))
 
     def delete(self, path: str) -> None:
         target = self._resolve(path)
