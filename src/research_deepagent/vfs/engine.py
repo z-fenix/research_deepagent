@@ -152,9 +152,11 @@ class DiskEngine(StorageEngine):
 
     def keys(self, prefix: str = "") -> list[str]:
         out: list[str] = []
-        for candidate in sorted(self._root.rglob("*")):
+        for candidate in self._root.rglob("*"):
             if candidate.is_file():
                 vpath = "/" + candidate.relative_to(self._root).as_posix()
                 if vpath.startswith(prefix):
                     out.append(vpath)
-        return out
+        # 按虚拟路径字符串序排序，与 MemoryEngine/SqliteEngine 一致
+        # （rglob 的 Path 排序按路径分量比较，与字符串序不同）。
+        return sorted(out)

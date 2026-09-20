@@ -1,8 +1,8 @@
 """PRD→BDD→SDD document-generation graph, served by `agentseek-api dev`.
 
 Pure deepagents + LangChain. The orchestrator delegates to three phase
-sub-agents (PRD / BDD / SDD); documents land on the real disk under
-DOCS_WORKSPACE_DIR via FilesystemBackend.
+sub-agents (PRD / BDD / SDD); documents land under DOCS_WORKSPACE_DIR via
+the pluggable VFS backends (DOCS_BACKEND, default disk).
 """
 
 from __future__ import annotations

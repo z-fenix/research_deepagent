@@ -49,6 +49,14 @@ def test_keys_sorted_with_prefix(engine):
     assert engine.keys() == ["/d/a.md", "/d/b.md", "/x.md"]
 
 
+def test_keys_uses_virtual_path_string_order(engine):
+    # M1：Path 分量序与字符串序不同（"/d.md" < "/d/a.md"），keys() 须按
+    # 虚拟路径字符串序返回，与 memory/sqlite 引擎一致。
+    engine.put("/d.md", _fd("x"))
+    engine.put("/d/a.md", _fd("x"))
+    assert engine.keys() == ["/d.md", "/d/a.md"]
+
+
 def test_path_escape_rejected(engine, tmp_path):
     with pytest.raises(ValueError):
         engine.get("/../outside.md")

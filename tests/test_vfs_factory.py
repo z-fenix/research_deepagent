@@ -23,6 +23,7 @@ def test_sqlite_backend_uses_env_path(tmp_path, monkeypatch):
     monkeypatch.setenv("DOCS_SQLITE_PATH", str(tmp_path / "custom.sqlite3"))
     backend = create_backend(root=tmp_path)
     assert isinstance(backend.engine, SqliteEngine)
+    assert (tmp_path / "custom.sqlite3").exists()
 
 
 def test_sqlite_backend_persists(tmp_path):

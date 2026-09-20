@@ -129,7 +129,7 @@ def _bench_operations(backend, name: str, size: int) -> list[dict[str, object]]:
             lambda: backend.write(target_path, target_content),
             lambda: backend.edit(target_path, anchor, "edited-anchor"),
         ),
-        "grep": (lambda: None, lambda: backend.grep("sentinel")),
+        "grep": (lambda: None, lambda: backend.grep("sentinel", max_count=1000)),
         "glob": (lambda: None, lambda: backend.glob("**/*.md")),
         "ls": (lambda: None, lambda: backend.ls("/")),
     }
@@ -151,16 +151,18 @@ def _bench_operations(backend, name: str, size: int) -> list[dict[str, object]]:
 
 def main() -> None:
     TRACE_DIR.mkdir(exist_ok=True)
-    tmp = Path(tempfile.mkdtemp(prefix="vfs-bench-"))
     rows: list[dict[str, object]] = []
 
-    for name in BACKEND_NAMES:
-        for size_name, size in SIZES.items():
-            root = tmp / f"{name}-{size_name}"
-            root.mkdir(parents=True, exist_ok=True)
-            backend = create_backend(name, root=root)
-            _check_correctness(backend, size)  # 正确性闸门
-            rows.extend(_bench_operations(backend, name, size))
+    # TemporaryDirectory 上下文管理器保证基准临时目录随用随清（M4）。
+    with tempfile.TemporaryDirectory(prefix="vfs-bench-") as tmp_name:
+        tmp = Path(tmp_name)
+        for name in BACKEND_NAMES:
+            for size_name, size in SIZES.items():
+                root = tmp / f"{name}-{size_name}"
+                root.mkdir(parents=True, exist_ok=True)
+                backend = create_backend(name, root=root)
+                _check_correctness(backend, size)  # 正确性闸门
+                rows.extend(_bench_operations(backend, name, size))
 
     _write_csv(rows)
     _write_report(rows)
@@ -210,8 +212,9 @@ def _write_report(rows: list[dict[str, object]]) -> None:
     lines += [
         "",
         "预期模式：memory 无 IO 开销最快；disk 受文件系统调用主导；"
-        "sqlite 每次写提交事务，写放大最明显，但 grep/glob 等枚举类操作"
-        "与 disk 同受全量 keys() 扫描主导。具体数字以上表为准。",
+        "sqlite 每次写提交事务，写放大最明显。glob 等枚举类操作受全量 "
+        "keys()/rglob 扫描主导；grep 基准已加 max_count 截断，match 物化"
+        "成本有界，开销同样以扫描为主。具体数字以上表为准。",
     ]
 
     (TRACE_DIR / "vfs-benchmark-report.md").write_text(
