@@ -5,6 +5,7 @@ from __future__ import annotations
 import abc
 import sqlite3
 import threading
+from datetime import UTC, datetime
 from pathlib import Path
 
 from deepagents.backends.protocol import FileData
@@ -108,3 +109,52 @@ class SqliteEngine(StorageEngine):
         with self._lock:
             rows = self._conn.execute("SELECT path FROM files ORDER BY path").fetchall()
         return [row[0] for row in rows if row[0].startswith(prefix)]
+
+
+class DiskEngine(StorageEngine):
+    """真实目录树存储：虚拟路径映射为 ``<root>/<path>`` 下的普通文件。
+
+    落盘格式与 deepagents ``FilesystemBackend`` 兼容（普通文本文件），
+    时间戳从 ``os.stat`` 派生。
+    """
+
+    def __init__(self, root: Path) -> None:
+        self._root = Path(root).resolve()
+        self._root.mkdir(parents=True, exist_ok=True)
+
+    def _resolve(self, path: str) -> Path:
+        full = (self._root / path.lstrip("/")).resolve()
+        if not full.is_relative_to(self._root):
+            msg = f"Path escapes root: {path}"
+            raise ValueError(msg)
+        return full
+
+    def get(self, path: str) -> FileData | None:
+        target = self._resolve(path)
+        if not target.is_file():
+            return None
+        stat = target.stat()
+        return FileData(
+            content=target.read_text(encoding="utf-8"),
+            encoding="utf-8",
+            created_at=datetime.fromtimestamp(stat.st_ctime, tz=UTC).isoformat(),
+            modified_at=datetime.fromtimestamp(stat.st_mtime, tz=UTC).isoformat(),
+        )
+
+    def put(self, path: str, file_data: FileData) -> None:
+        target = self._resolve(path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(file_data["content"], encoding="utf-8")
+
+    def delete(self, path: str) -> None:
+        target = self._resolve(path)
+        target.unlink(missing_ok=True)
+
+    def keys(self, prefix: str = "") -> list[str]:
+        out: list[str] = []
+        for candidate in sorted(self._root.rglob("*")):
+            if candidate.is_file():
+                vpath = "/" + candidate.relative_to(self._root).as_posix()
+                if vpath.startswith(prefix):
+                    out.append(vpath)
+        return out
