@@ -120,3 +120,13 @@ def test_write_normalizes_relative_path(vfs):
     assert result.error is None
     assert result.path == "/docs/x.md"
     assert vfs.read("/docs/x.md").error is None
+
+
+def test_write_to_existing_directory_path_reports_error(vfs):
+    # C1 跨引擎一致：写已存在的目录路径返回结构化 error，而非引擎异常。
+    assert vfs.write("/d/f.md", "x").error is None
+    result = vfs.write("/d", "y")
+    assert result.error is not None
+    assert "is a directory" in result.error
+    # 目录内原有文件不受影响
+    assert vfs.read("/d/f.md").file_data["content"] == "x"
