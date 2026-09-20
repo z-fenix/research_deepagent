@@ -13,7 +13,6 @@ from datetime import datetime  # noqa: F401 - kept per SDD brief head
 from pathlib import Path
 
 from deepagents import create_deep_agent
-from deepagents.backends import FilesystemBackend
 from dotenv import load_dotenv
 from langchain.chat_models import init_chat_model
 
@@ -29,6 +28,7 @@ from research_deepagent.validators.lc_tools import (
     validate_traceability,
     validate_user_stories,
 )
+from research_deepagent.vfs import create_backend
 
 # PENCLI_MCP_URL is read at mcp_tools import time, so .env must be loaded
 # before the import below (controller-mandated import order).
@@ -178,5 +178,5 @@ graph = create_deep_agent(
     tools=[],
     system_prompt=ORCHESTRATOR_INSTRUCTIONS,
     subagents=[prd_agent, bdd_agent, sdd_agent],
-    backend=FilesystemBackend(root_dir=WORKSPACE_ROOT),
+    backend=create_backend(root=WORKSPACE_ROOT),
 )

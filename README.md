@@ -53,6 +53,8 @@ uvx agentseek dev
 | `DOCS_WORKSPACE_DIR` | 文档工作区根目录，默认 `./workspace` |
 | `PENCLI_MCP_URL` | pencli 设计 MCP 的 streamable-http 地址；留空则降级运行 |
 | 其余 | 模型 provider 与凭据、Tavily key 同原模板（见 `.env.example`） |
+| `DOCS_BACKEND` | 文档存储后端：`memory` / `sqlite` / `disk`，默认 `disk` |
+| `DOCS_SQLITE_PATH` | `sqlite` 后端的数据库文件路径，默认 `<DOCS_WORKSPACE_DIR>/.vfs.sqlite3` |
 
 ## 测试
 
