@@ -16,8 +16,8 @@ from deepagents.backends.protocol import (
 )
 from deepagents.backends.utils import (
     create_file_data,
-    normalize_read_bounds,
     perform_string_replacement,
+    slice_read_response,
     update_file_data,
     validate_path,
 )
@@ -79,30 +79,7 @@ class VirtualFileSystem(BackendProtocol):
         file_data = self.engine.get(file_path)
         if file_data is None:
             return ReadResult(error=f"File '{file_path}' not found")
-        # 注：此处不复用上游 slice_read_response——其 0.7.x 语义与协议一致性
-        # 用例有两点冲突（整文件读完 next_offset=None；offset 超界报错）。
-        # 本 VFS 语义：next_offset 恒等于 end_line；offset 超界返回空窗口。
-        content = file_data["content"]
-        offset, limit = normalize_read_bounds(offset, limit)
-        if not content or content.strip() == "":
-            return ReadResult(file_data=dict(file_data, content=content))
-        if limit == 0:
-            return ReadResult(
-                file_data=dict(file_data, content=""), no_lines_requested=True
-            )
-        lines = content.splitlines(keepends=True)
-        total_lines = len(lines)
-        if offset >= total_lines:
-            return ReadResult(file_data=dict(file_data, content=""))
-        end_idx = min(offset + limit, total_lines)
-        sliced = "".join(lines[offset:end_idx]).replace("\r\n", "\n").replace("\r", "\n")
-        return ReadResult(
-            file_data=dict(file_data, content=sliced),
-            total_lines=total_lines,
-            start_line=offset + 1,
-            end_line=end_idx,
-            next_offset=end_idx,
-        )
+        return slice_read_response(file_data, offset, limit)
 
     def edit(
         self,

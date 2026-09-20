@@ -1,5 +1,9 @@
 """VirtualFileSystem 写/读/编辑语义（三引擎参数化）。"""
 
+import pytest
+from research_deepagent.vfs.engine import DiskEngine, MemoryEngine, SqliteEngine
+from research_deepagent.vfs.vfs import VirtualFileSystem
+
 
 FIVE_LINES = "l1\nl2\nl3\nl4\nl5\n"
 
@@ -13,7 +17,7 @@ def test_write_then_read_roundtrip(vfs):
     assert read.file_data["content"] == "# PRD\nline2\n"
     assert read.total_lines == 2
     assert read.start_line == 1 and read.end_line == 2
-    assert read.next_offset == 2
+    assert read.next_offset is None
 
 
 def test_read_missing_reports_error(vfs):
@@ -32,11 +36,12 @@ def test_read_pagination_window(vfs):
     assert window.total_lines == 5
 
 
-def test_read_offset_beyond_end_gives_empty_window(vfs):
+def test_read_offset_beyond_end_reports_error(vfs):
     vfs.write("/f.md", FIVE_LINES)
     window = vfs.read("/f.md", offset=99, limit=2)
-    assert window.error is None
-    assert window.file_data["content"] == ""
+    assert window.error is not None
+    assert "exceeds file length" in window.error
+    assert window.file_data is None
 
 
 def test_read_degenerate_bounds_clamped(vfs):
@@ -49,14 +54,29 @@ def test_read_degenerate_bounds_clamped(vfs):
     assert zero.no_lines_requested is True
 
 
-def test_write_overwrite_preserves_created_at(vfs):
-    vfs.write("/f.md", "v1")
-    first = vfs.read("/f.md").file_data
-    vfs.write("/f.md", "v2")
-    second = vfs.read("/f.md").file_data
+@pytest.fixture(params=["memory", "sqlite"])
+def vfs_persistent(request, tmp_path):
+    """created_at 覆盖稳定性仅对元数据内置存储的引擎成立；disk 由 os.stat 派生。"""
+    if request.param == "memory":
+        return VirtualFileSystem(MemoryEngine())
+    return VirtualFileSystem(SqliteEngine(tmp_path / "test.sqlite3"))
+
+
+def test_write_overwrite_preserves_created_at(vfs_persistent):
+    vfs_persistent.write("/f.md", "v1")
+    first = vfs_persistent.read("/f.md").file_data
+    vfs_persistent.write("/f.md", "v2")
+    second = vfs_persistent.read("/f.md").file_data
     assert second["content"] == "v2"
     assert second["created_at"] == first["created_at"]
     assert second["modified_at"] >= first["modified_at"]
+
+
+def test_write_overwrite_disk_content(tmp_path):
+    vfs = VirtualFileSystem(DiskEngine(tmp_path / "root"))
+    vfs.write("/f.md", "v1")
+    vfs.write("/f.md", "v2")
+    assert vfs.read("/f.md").file_data["content"] == "v2"
 
 
 def test_edit_unique_replacement(vfs):
