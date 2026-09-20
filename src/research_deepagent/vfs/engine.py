@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import abc
+import sqlite3
+import threading
+from pathlib import Path
 
 from deepagents.backends.protocol import FileData
 
@@ -49,3 +52,59 @@ class MemoryEngine(StorageEngine):
 
     def keys(self, prefix: str = "") -> list[str]:
         return sorted(k for k in self._files if k.startswith(prefix))
+
+
+class SqliteEngine(StorageEngine):
+    """单文件 SQLite 持久化存储（WAL），线程安全。"""
+
+    def __init__(self, db_path: str | Path) -> None:
+        self._lock = threading.Lock()
+        self._conn = sqlite3.connect(str(db_path), check_same_thread=False)
+        self._conn.execute("PRAGMA journal_mode=WAL")
+        self._conn.execute(
+            "CREATE TABLE IF NOT EXISTS files ("
+            "path TEXT PRIMARY KEY, "
+            "content TEXT NOT NULL, "
+            "encoding TEXT NOT NULL, "
+            "created_at TEXT NOT NULL, "
+            "modified_at TEXT NOT NULL)"
+        )
+        self._conn.commit()
+
+    def get(self, path: str) -> FileData | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT content, encoding, created_at, modified_at FROM files WHERE path = ?",
+                (path,),
+            ).fetchone()
+        if row is None:
+            return None
+        return FileData(
+            content=row[0], encoding=row[1], created_at=row[2], modified_at=row[3]
+        )
+
+    def put(self, path: str, file_data: FileData) -> None:
+        with self._lock:
+            self._conn.execute(
+                "INSERT OR REPLACE INTO files"
+                " (path, content, encoding, created_at, modified_at)"
+                " VALUES (?, ?, ?, ?, ?)",
+                (
+                    path,
+                    file_data["content"],
+                    file_data.get("encoding", "utf-8"),
+                    file_data.get("created_at", ""),
+                    file_data.get("modified_at", ""),
+                ),
+            )
+            self._conn.commit()
+
+    def delete(self, path: str) -> None:
+        with self._lock:
+            self._conn.execute("DELETE FROM files WHERE path = ?", (path,))
+            self._conn.commit()
+
+    def keys(self, prefix: str = "") -> list[str]:
+        with self._lock:
+            rows = self._conn.execute("SELECT path FROM files ORDER BY path").fetchall()
+        return [row[0] for row in rows if row[0].startswith(prefix)]
