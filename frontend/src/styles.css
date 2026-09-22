@@ -270,11 +270,43 @@ body { margin: 0; }
 .composer {
   width: min(820px, 100%);
   margin: 0 auto;
-  padding: 1rem;
+  padding: 0.75rem 1rem 1rem;
   display: flex;
+  align-items: flex-end;
   gap: 0.5rem;
-  border-top: 1px solid var(--app-border-l1);
 }
+
+.composer__input {
+  flex: 1;
+  resize: none;
+  border: 1px solid var(--app-border-l2);
+  border-radius: var(--app-radius-md);
+  background: var(--app-bg-base);
+  color: var(--app-label-primary);
+  font: inherit;
+  padding: 0.6rem 0.8rem;
+  line-height: 24px;
+  overflow-y: auto;
+}
+.composer__input:focus {
+  outline: none;
+  border-color: var(--app-accent);
+  box-shadow: var(--app-shadow-lv1);
+}
+.composer__input::placeholder { color: var(--app-label-caption); }
+
+.composer__button {
+  border: 0;
+  border-radius: var(--app-radius-md);
+  background: var(--app-accent);
+  color: var(--app-label-on-accent);
+  padding: 0.6rem 1.1rem;
+  font: inherit;
+  cursor: pointer;
+}
+.composer__button:hover:not(:disabled) { background: var(--app-accent-hover); }
+.composer__button:disabled { opacity: 0.5; cursor: not-allowed; }
+.composer__button--stop { background: var(--app-state-error); }
 
 @keyframes activity-pulse {
   0%, 80%, 100% {

@@ -5,6 +5,7 @@ import { useThreads } from "./lib/threads";
 import Sidebar from "./components/shell/Sidebar";
 import Header from "./components/shell/Header";
 import ThemeSettingsDialog from "./components/shell/ThemeSettingsDialog";
+import Composer from "./components/composer/Composer";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import TodoList from "./TodoList";
@@ -79,20 +80,11 @@ function AgentWorkspace() {
               {stream.error ? <p className="error">{String(stream.error)}</p> : null}
             </section>
           </div>
-          <form
-            className="composer"
-            onSubmit={(event) => {
-              event.preventDefault();
-              const input = event.currentTarget.elements.namedItem("text") as HTMLInputElement;
-              const value = input.value.trim();
-              if (!value || stream.isLoading) return;
-              input.value = "";
-              stream.submit(value);
-            }}
-          >
-            <input name="text" placeholder="Ask a research question…" disabled={stream.isLoading} />
-            <button type="submit" disabled={stream.isLoading}>Send</button>
-          </form>
+          <Composer
+            isLoading={stream.isLoading}
+            onSubmit={stream.submit}
+            onStop={stream.stop}
+          />
         </div>
       </div>
       <ThemeSettingsDialog open={appearanceOpen} onClose={() => setAppearanceOpen(false)} />
