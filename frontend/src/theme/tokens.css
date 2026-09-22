@@ -1,0 +1,163 @@
+/* tokens.css — static palette + semantic aliases.
+   Palette values follow deepseek-harness ui-theme design-platform.css.
+   Components must consume --app-* aliases only; no hardcoded colors. */
+
+:root {
+  /* ---- static palette (shared by both modes) ---- */
+  --dsw-neutral-bluish-00: rgb(255, 255, 255);
+  --dsw-neutral-bluish-50: rgb(249, 250, 251);
+  --dsw-neutral-bluish-60: rgb(245, 246, 247);
+  --dsw-neutral-bluish-75: rgb(241, 243, 245);
+  --dsw-neutral-bluish-100: rgb(235, 238, 242);
+  --dsw-neutral-bluish-200: rgb(225, 229, 238);
+  --dsw-neutral-bluish-400: rgb(173, 178, 184);
+  --dsw-neutral-bluish-500: rgb(151, 157, 166);
+  --dsw-neutral-bluish-600: rgb(129, 133, 140);
+  --dsw-neutral-bluish-700: rgb(97, 102, 107);
+  --dsw-neutral-bluish-750: rgb(67, 69, 74);
+  --dsw-neutral-bluish-850: rgb(44, 44, 46);
+  --dsw-neutral-bluish-900: rgb(27, 27, 28);
+  --dsw-neutral-bluish-950: rgb(21, 21, 23);
+  --dsw-neutral-bluish-1000: rgb(15, 17, 21);
+  --dsw-deepseek-50: rgb(237, 243, 254);
+  --dsw-deepseek-100: rgb(228, 237, 253);
+  --dsw-deepseek-200: rgb(211, 226, 255);
+  --dsw-deepseek-400: rgb(122, 170, 255);
+  --dsw-deepseek-500: rgb(65, 118, 230);
+  --dsw-deepseek-600: rgb(72, 104, 178);
+  --dsw-green-100: rgb(230, 250, 237);
+  --dsw-green-400: rgb(78, 209, 126);
+  --dsw-green-500: rgb(34, 197, 94);
+  --dsw-amber-100: rgb(254, 245, 231);
+  --dsw-amber-500: rgb(245, 158, 11);
+  --dsw-amber-600: rgb(221, 134, 41);
+  --dsw-red-500: rgb(239, 68, 68);
+  --dsw-red-600: rgb(236, 19, 19);
+
+  /* ---- masks & translucency (mode-specific, light defaults) ---- */
+  --app-mask-l1: rgba(0, 0, 0, 0.12);
+  --app-menu-backdrop: rgba(248, 249, 250, 0.58);
+  --app-scrollbar-thumb: var(--dsw-neutral-bluish-200);
+
+  /* ---- semantic aliases: light ---- */
+  --app-bg-base: var(--dsw-neutral-bluish-00);
+  --app-bg-layer-1: var(--dsw-neutral-bluish-50);
+  --app-bg-layer-2: var(--dsw-neutral-bluish-60);
+  --app-bg-accent-soft: var(--dsw-deepseek-50);
+  --app-bg-accent-softer: var(--dsw-deepseek-100);
+  --app-bg-success-soft: var(--dsw-green-100);
+  --app-bg-warn-soft: var(--dsw-amber-100);
+  --app-border-l1: rgba(0, 0, 0, 0.04);
+  --app-border-l2: rgba(0, 0, 0, 0.1);
+  --app-border-l3: rgba(0, 0, 0, 0.12);
+  --app-border-l4: rgba(0, 0, 0, 0.16);
+  --app-label-primary: var(--dsw-neutral-bluish-1000);
+  --app-label-secondary: var(--dsw-neutral-bluish-700);
+  --app-label-tertiary: var(--dsw-neutral-bluish-600);
+  --app-label-caption: var(--dsw-neutral-bluish-400);
+  --app-label-on-accent: var(--dsw-neutral-bluish-00);
+  --app-accent: var(--dsw-deepseek-500);
+  --app-accent-hover: var(--dsw-deepseek-600);
+  --app-link: var(--dsw-deepseek-500);
+  --app-state-success: var(--dsw-green-500);
+  --app-state-warn: var(--dsw-amber-600);
+  --app-state-error: var(--dsw-red-600);
+  --app-bubble-user: var(--dsw-deepseek-50);
+
+  /* ---- elevation: 0.5px hairline + layered soft shadows ---- */
+  --app-elevation-stroke: 0 0 0 0.5px var(--app-border-l2);
+  --app-shadow-lv1:
+    var(--app-elevation-stroke),
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 2px 8px rgba(0, 0, 0, 0.04);
+  --app-shadow-lv2:
+    var(--app-elevation-stroke),
+    0 2px 6px rgba(0, 0, 0, 0.05),
+    0 12px 32px rgba(0, 0, 0, 0.08);
+
+  /* ---- shape & motion ---- */
+  --app-radius-sm: 6px;
+  --app-radius-md: 10px;
+  --app-radius-lg: 16px;
+  --app-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --app-transition: 0.2s;
+
+  /* ---- font ladder (base written by JS before first paint) ---- */
+  --app-content-font-size: 14px;
+  --app-content-font-size-secondary: calc(var(--app-content-font-size) - 1px);
+  --app-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --app-font-family-code: "SF Mono", "JetBrains Mono", "Fira Code", Consolas,
+    "Liberation Mono", Menlo, Courier, "PingFang SC", "Microsoft YaHei";
+}
+
+body[data-theme="dark"] {
+  --app-mask-l1: rgba(0, 0, 0, 0.48);
+  --app-menu-backdrop: rgba(44, 44, 46, 0.58);
+  --app-scrollbar-thumb: var(--dsw-neutral-bluish-750);
+
+  --app-bg-base: var(--dsw-neutral-bluish-950);
+  --app-bg-layer-1: var(--dsw-neutral-bluish-900);
+  --app-bg-layer-2: var(--dsw-neutral-bluish-850);
+  --app-bg-accent-soft: rgba(122, 170, 255, 0.1);
+  --app-bg-accent-softer: rgba(122, 170, 255, 0.16);
+  --app-bg-success-soft: rgba(34, 197, 94, 0.14);
+  --app-bg-warn-soft: rgba(245, 158, 11, 0.14);
+  --app-border-l1: rgba(255, 255, 255, 0.06);
+  --app-border-l2: rgba(255, 255, 255, 0.12);
+  --app-border-l3: rgba(255, 255, 255, 0.16);
+  --app-border-l4: rgba(255, 255, 255, 0.22);
+  --app-label-primary: var(--dsw-neutral-bluish-00);
+  --app-label-secondary: var(--dsw-neutral-bluish-200);
+  --app-label-tertiary: var(--dsw-neutral-bluish-400);
+  --app-label-caption: var(--dsw-neutral-bluish-500);
+  --app-label-on-accent: var(--dsw-neutral-bluish-00);
+  --app-accent: var(--dsw-deepseek-400);
+  --app-accent-hover: rgb(103, 158, 254);
+  --app-link: var(--dsw-deepseek-400);
+  --app-state-success: var(--dsw-green-400);
+  --app-state-warn: var(--dsw-amber-500);
+  --app-state-error: var(--dsw-red-500);
+  --app-bubble-user: rgba(122, 170, 255, 0.14);
+  --app-shadow-lv1:
+    var(--app-elevation-stroke),
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 2px 8px rgba(0, 0, 0, 0.3);
+  --app-shadow-lv2:
+    var(--app-elevation-stroke),
+    0 2px 6px rgba(0, 0, 0, 0.35),
+    0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+/* ---- global chrome: smooth corners, scrollbars, base text ---- */
+@supports (corner-shape: superellipse(1.5)) {
+  :root { --app-corner-shape: superellipse(1.5); }
+  *, *::before, *::after { corner-shape: var(--app-corner-shape); }
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--app-scrollbar-thumb) transparent;
+}
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb {
+  background: var(--app-scrollbar-thumb);
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-track { background: transparent; }
+
+body {
+  font-family: var(--app-font-family);
+  font-size: var(--app-content-font-size);
+  background: var(--app-bg-base);
+  color: var(--app-label-primary);
+  line-height: 1.5;
+}
+
+code {
+  font-family: var(--app-font-family-code);
+  background: var(--app-bg-layer-2);
+  padding: 0.1em 0.35em;
+  border-radius: var(--app-radius-sm);
+  font-size: 0.95em;
+}

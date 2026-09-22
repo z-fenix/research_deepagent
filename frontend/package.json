@@ -11,7 +11,9 @@
   },
   "dependencies": {
     "@langchain/core": "^1.1.44",
+    "@langchain/langgraph-sdk": "^1.8.10",
     "@langchain/react": "~0.3.5",
+    "clsx": "^2.1.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-markdown": "^9.0.1",
@@ -23,9 +25,9 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^6.0.3",
+    "jsdom": "^29.1.1",
     "typescript": "^5.6.3",
     "vite": "^8.1.0",
-    "vitest": "^4.1.9",
-    "jsdom": "^29.1.1"
+    "vitest": "^4.1.9"
   }
 }
