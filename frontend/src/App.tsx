@@ -8,7 +8,7 @@ import ThemeSettingsDialog from "./components/shell/ThemeSettingsDialog";
 import Composer from "./components/composer/Composer";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import TodoList from "./TodoList";
+import TodoDock from "./components/todo/TodoDock";
 import ThinkingBlock from "./ThinkingBlock";
 import ToolCallCard from "./ToolCallCard";
 
@@ -50,7 +50,6 @@ function AgentWorkspace() {
         <Header sessionUrl={sessionUrl} />
         <div className="shell__scroll">
           <div className="shell__content">
-            <TodoList todos={stream.todos} />
             <section className="chat" aria-label="Research conversation">
               {stream.rows.map((row) =>
                 row.kind === "prose" ? (
@@ -80,6 +79,7 @@ function AgentWorkspace() {
               {stream.error ? <p className="error">{String(stream.error)}</p> : null}
             </section>
           </div>
+          <TodoDock todos={stream.todos} />
           <Composer
             isLoading={stream.isLoading}
             onSubmit={stream.submit}

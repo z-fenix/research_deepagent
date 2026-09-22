@@ -1,5 +1,5 @@
 
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
@@ -115,12 +115,15 @@ describe("App", () => {
     expect(screen.getByText("新会话 · 发送首条消息后生成链接")).toBeTruthy();
   });
 
-  it("renders live todo progress from deepagents state", () => {
+  it("renders a collapsible todo dock with progress summary", () => {
     render(<App />);
 
-    expect(screen.getByText("Research plan")).toBeTruthy();
-    expect(screen.getByText("1/3 completed")).toBeTruthy();
-    expect(screen.getByText("33%")).toBeTruthy();
+    const summary = screen.getByText("Research plan");
+    expect(summary).toBeTruthy();
+    expect(screen.getByText("1/3 · 33%")).toBeTruthy();
+    expect(screen.queryByText("Plan the report sections")).toBeNull();
+
+    fireEvent.click(summary);
     expect(screen.getByText("Plan the report sections")).toBeTruthy();
     expect(screen.getByText("Research LangGraph 1.0 changes")).toBeTruthy();
     expect(screen.getByText("Write final summary")).toBeTruthy();

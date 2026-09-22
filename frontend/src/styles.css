@@ -7,45 +7,31 @@ body { margin: 0; }
   margin: 1.5rem 0;
 }
 
-.todo-panel {
-  margin-top: 1.5rem;
-  padding: 1rem 1.1rem;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 12px;
-  background: linear-gradient(180deg, rgba(31, 111, 235, 0.07), rgba(31, 111, 235, 0.02));
+.todo-dock {
+  width: min(820px, 100%);
+  margin: 0 auto;
+  padding: 0 1rem 0.5rem;
 }
 
-.todo-panel__header {
+.todo-dock__summary {
+  width: 100%;
   display: flex;
   justify-content: space-between;
-  gap: 1rem;
-  align-items: flex-end;
-  margin-bottom: 0.9rem;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid var(--app-border-l1);
+  border-radius: var(--app-radius-md);
+  background: var(--app-bg-accent-soft);
+  color: var(--app-label-primary);
+  padding: 0.5rem 0.8rem;
+  font: inherit;
+  cursor: pointer;
+  box-shadow: var(--app-shadow-lv1);
 }
 
-.todo-panel__eyebrow {
-  margin: 0 0 0.2rem;
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  opacity: 0.7;
-}
-
-.todo-panel__title {
-  margin: 0;
-  font-size: 1.05rem;
-}
-
-.todo-panel__summary {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.15rem;
-  font-size: 0.85rem;
-}
-
-.todo-panel__summary strong {
-  font-size: 1.1rem;
+.todo-dock__summary span {
+  color: var(--app-label-secondary);
+  font-size: var(--app-content-font-size-secondary);
 }
 
 .todo-list {
@@ -64,15 +50,15 @@ body { margin: 0; }
   align-items: center;
   border-radius: 10px;
   padding: 0.7rem 0.8rem;
-  background: rgba(255, 255, 255, 0.66);
+  background: var(--app-bg-layer-1);
 }
 
 .todo-list__item--completed {
-  background: rgba(80, 180, 110, 0.12);
+  background: var(--app-bg-success-soft);
 }
 
 .todo-list__item--in_progress {
-  background: rgba(255, 200, 80, 0.18);
+  background: var(--app-bg-warn-soft);
 }
 
 .todo-list__index {
@@ -102,12 +88,12 @@ body { margin: 0; }
 
 .todo-list__status--completed {
   background: rgba(80, 180, 110, 0.18);
-  color: #1b5d2f;
+  color: var(--app-state-success);
 }
 
 .todo-list__status--in_progress {
   background: rgba(220, 150, 50, 0.2);
-  color: #8c5a00;
+  color: var(--app-state-warn);
 }
 
 .msg {
@@ -357,10 +343,6 @@ body { margin: 0; }
 @media (prefers-color-scheme: dark) {
   .msg { background: rgba(255, 255, 255, 0.04); }
   .msg--human { background: rgba(80, 140, 250, 0.15); }
-  .todo-panel {
-    border-color: rgba(255, 255, 255, 0.12);
-    background: linear-gradient(180deg, rgba(80, 140, 250, 0.16), rgba(80, 140, 250, 0.05));
-  }
   .todo-list__item { background: rgba(255, 255, 255, 0.05); }
   .todo-list__item--completed { background: rgba(80, 180, 110, 0.14); }
   .todo-list__item--in_progress { background: rgba(255, 200, 80, 0.14); }
