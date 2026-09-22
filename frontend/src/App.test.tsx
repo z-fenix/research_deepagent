@@ -60,6 +60,12 @@ vi.mock("@langchain/react", () => ({
   },
 }));
 
+vi.mock("@langchain/langgraph-sdk", () => ({
+  Client: vi.fn(function () {
+    return { threads: { search: vi.fn().mockResolvedValue([]) } };
+  }),
+}));
+
 afterEach(() => {
   cleanup();
   capturedStreamOptions = null;
@@ -104,15 +110,9 @@ afterEach(() => {
 });
 
 describe("App", () => {
-  it("shows that a thread URL will be added after the first message", () => {
+  it("shows the new-session hint before any thread exists", () => {
     render(<App />);
-
-    expect(screen.getByText("Session link ready")).toBeTruthy();
-    expect(
-      screen.getByText(
-        "After the first message, this page adds a thread URL so you can reopen the same conversation later.",
-      ),
-    ).toBeTruthy();
+    expect(screen.getByText("新会话 · 发送首条消息后生成链接")).toBeTruthy();
   });
 
   it("renders live todo progress from deepagents state", () => {
@@ -244,9 +244,8 @@ describe("App", () => {
     });
 
     expect(window.location.search).toBe("?thread=thread-123");
-    expect(screen.getByText("Session link active")).toBeTruthy();
-    expect(screen.getByText("Reopen this conversation later with the current URL.")).toBeTruthy();
     expect(screen.getByText("http://localhost:3000/?thread=thread-123")).toBeTruthy();
+    expect(screen.getByText("复制会话链接")).toBeTruthy();
   });
 
   it("skips the todo panel when the backend has not emitted todos yet", () => {
