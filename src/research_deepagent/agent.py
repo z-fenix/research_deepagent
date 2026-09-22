@@ -14,6 +14,7 @@ from pathlib import Path
 
 from deepagents import create_deep_agent
 from dotenv import load_dotenv
+from langchain.agents.middleware import TodoListMiddleware
 from langchain.chat_models import init_chat_model
 
 from research_deepagent.prompts import (
@@ -173,10 +174,21 @@ sdd_agent = {
     "tools": [validate_traceability],
 }
 
-graph = create_deep_agent(
-    model=model,
-    tools=[],
-    system_prompt=ORCHESTRATOR_INSTRUCTIONS,
-    subagents=[prd_agent, bdd_agent, sdd_agent],
-    backend=create_backend(root=WORKSPACE_ROOT),
-)
+def build_deep_agent(model, *, backend, subagents=None):
+    """Assemble the orchestrator graph; injectable model/backend for tests.
+
+    TodoListMiddleware provides write_todos + todos state for planning;
+    planning itself stays at the orchestrator level (named sub-agents keep
+    their own middleware stacks and do not track the shared todo list).
+    """
+    return create_deep_agent(
+        model=model,
+        tools=[],
+        system_prompt=ORCHESTRATOR_INSTRUCTIONS,
+        subagents=subagents if subagents is not None else [prd_agent, bdd_agent, sdd_agent],
+        backend=backend,
+        middleware=[TodoListMiddleware()],
+    )
+
+
+graph = build_deep_agent(model=model, backend=create_backend(root=WORKSPACE_ROOT))

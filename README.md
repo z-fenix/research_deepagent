@@ -46,6 +46,9 @@ uvx agentseek dev
 - 回复「确认」→ sdd-agent 产出各故事 SDD 与追溯矩阵 → 完成清单
 - 任何阶段回复修改意见 → 仅该阶段重跑修订
 
+前端支持浅色/深色/跟随系统三种主题与 12–17px 正文字号：侧栏底部「外观设置」
+中切换，选择持久化在浏览器 localStorage（key `research-agent.ui-prefs`）。
+
 ## 环境变量
 
 | 变量 | 说明 |

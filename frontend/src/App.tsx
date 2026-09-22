@@ -6,11 +6,9 @@ import Sidebar from "./components/shell/Sidebar";
 import Header from "./components/shell/Header";
 import ThemeSettingsDialog from "./components/shell/ThemeSettingsDialog";
 import Composer from "./components/composer/Composer";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import TodoDock from "./components/todo/TodoDock";
-import ThinkingBlock from "./ThinkingBlock";
-import ToolCallCard from "./components/tools/ToolCallCard";
+import MessageList from "./components/chat/MessageList";
+import ActivityCard from "./components/chat/ActivityCard";
 
 function AgentWorkspace() {
   const stream = useAgentStream();
@@ -51,31 +49,13 @@ function AgentWorkspace() {
         <div className="shell__scroll">
           <div className="shell__content">
             <section className="chat" aria-label="Research conversation">
-              {stream.rows.map((row) =>
-                row.kind === "prose" ? (
-                  <article key={row.key} className={`msg msg--${row.type}`}>
-                    <header className="msg__role">{row.type}</header>
-                    <div className="msg__body">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{row.body}</ReactMarkdown>
-                    </div>
-                  </article>
-                ) : row.kind === "plan" ? (
-                  <ThinkingBlock key={row.key} body={row.body} />
-                ) : (
-                  <ToolCallCard key={row.key} card={row.card} />
-                ),
+              {stream.rows.length === 0 && !stream.isLoading && (
+                <p className="hint">
+                  Try: <em>"Research what LangGraph 1.0 added vs 0.x. Cite sources."</em>
+                </p>
               )}
-              {stream.isLoading && (
-                <div className="activity-card" aria-live="polite" aria-label="Research in progress">
-                  <div className="activity-card__pulse" aria-hidden="true">
-                    <span /><span /><span />
-                  </div>
-                  <div className="activity-card__copy">
-                    <strong>Research in progress</strong>
-                    <span>Waiting for sub-agent results and final synthesis.</span>
-                  </div>
-                </div>
-              )}
+              <MessageList rows={stream.rows} />
+              <ActivityCard visible={stream.isLoading} />
               {stream.error ? <p className="error">{String(stream.error)}</p> : null}
             </section>
           </div>
