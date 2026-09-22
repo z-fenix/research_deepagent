@@ -10,7 +10,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import TodoDock from "./components/todo/TodoDock";
 import ThinkingBlock from "./ThinkingBlock";
-import ToolCallCard from "./ToolCallCard";
+import ToolCallCard from "./components/tools/ToolCallCard";
 
 function AgentWorkspace() {
   const stream = useAgentStream();

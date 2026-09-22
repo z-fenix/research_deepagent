@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import type { ToolCard } from "./lib/messages";
+import type { ToolCard } from "../../lib/messages";
+import { toolMeta } from "./registry";
 
 function formatArgs(args: unknown): string {
   try {
@@ -21,15 +22,13 @@ export default function ToolCallCard({ card }: { card: ToolCard }): ReactNode {
     previousStatus.current = card.status;
   }, [card.status]);
 
-  const label =
-    card.name === "task"
-      ? "Sub-agent: research-agent"
-      : `Tool: ${card.name}`;
+  const meta = toolMeta(card.name);
+  const label = meta.label(card.name);
   const badge = card.status === "pending" ? "running…" : "done";
 
   return (
     <details
-      className={`tool-card tool-card--${card.status}`}
+      className={`tool-card tool-card--${card.status}${meta.className ? ` ${meta.className}` : ""}`}
       open={open}
       onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}
     >
