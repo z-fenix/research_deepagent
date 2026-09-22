@@ -7,6 +7,26 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Keep in sync with frontend/src/theme/prefs.ts (its tests pin these defaults).
+      (function () {
+        try {
+          var raw = localStorage.getItem("research-agent.ui-prefs");
+          var prefs = raw ? JSON.parse(raw) : {};
+          var mode = prefs.mode === "light" || prefs.mode === "dark" ? prefs.mode : "system";
+          var size = Number(prefs.fontSize);
+          if (!(size >= 12 && size <= 17)) size = 14;
+          var dark =
+            mode === "dark" ||
+            (mode === "system" &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches);
+          document.body.dataset.theme = dark ? "dark" : "light";
+          document.documentElement.style.setProperty("--app-content-font-size", size + "px");
+        } catch (e) {
+          /* first paint falls back to tokens.css defaults */
+        }
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

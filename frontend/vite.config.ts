@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 
@@ -7,5 +8,6 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     server: { host: "127.0.0.1", port, strictPort: true },
+    test: { environment: "jsdom", setupFiles: ["./src/test-setup.ts"] },
   };
 });

@@ -3,6 +3,8 @@
    Components must consume --app-* aliases only; no hardcoded colors. */
 
 :root {
+  color-scheme: light dark;
+
   /* ---- static palette (shared by both modes) ---- */
   --dsw-neutral-bluish-00: rgb(255, 255, 255);
   --dsw-neutral-bluish-50: rgb(249, 250, 251);
