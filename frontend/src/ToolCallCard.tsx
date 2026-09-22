@@ -1,15 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-
-type Status = "pending" | "done";
-
-export type ToolCard = {
-  callId: string;
-  name: string;
-  args: unknown;
-  result: string | null;
-  status: Status;
-};
+import type { ToolCard } from "../lib/messages";
 
 function formatArgs(args: unknown): string {
   try {
@@ -21,7 +12,7 @@ function formatArgs(args: unknown): string {
 
 export default function ToolCallCard({ card }: { card: ToolCard }): ReactNode {
   const [open, setOpen] = useState(card.status === "pending");
-  const previousStatus = useRef<Status>(card.status);
+  const previousStatus = useRef<ToolCard["status"]>(card.status);
 
   useEffect(() => {
     if (previousStatus.current === "pending" && card.status === "done") {
