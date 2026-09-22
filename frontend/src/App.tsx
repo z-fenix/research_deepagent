@@ -5,7 +5,7 @@ import remarkGfm from "remark-gfm";
 import TodoList, { type TodoItem } from "./TodoList";
 import ThinkingBlock from "./ThinkingBlock";
 import ToolCallCard from "./ToolCallCard";
-import { buildRows, type Message, type Row } from "./lib/messages";
+import { buildRows, type Message } from "./lib/messages";
 
 type StreamState = {
   messages: Message[];

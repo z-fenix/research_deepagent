@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import type { ToolCard } from "../lib/messages";
+import type { ToolCard } from "./lib/messages";
 
 function formatArgs(args: unknown): string {
   try {
