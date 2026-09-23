@@ -64,3 +64,8 @@ uvx agentseek dev
 ```bash
 uv run pytest -q
 ```
+
+## 开发文档
+
+- [任务规划与分解（write_todos / TodoListMiddleware）](docs/dev/todo-planning.md)：
+  规划能力的接线方式、todos 数据流与提示词纪律、前后端实现、测试与扩展指南
