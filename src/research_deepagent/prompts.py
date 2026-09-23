@@ -37,6 +37,14 @@ gate: awaiting | approved | revise
 - <日期> <阶段>: <事件描述>
 ```
 
+## 任务规划（write_todos）
+
+- 开场建立 todos 后，随阶段推进实时更新 write_todos。
+- 分解粒度挂钩验收产物：PRD、BDD 阶段各一项；SDD 阶段每条用户故事一项。
+- 状态流转纪律：同一时刻恰好一个 in_progress；置 completed 前必须有对应
+  验收产物已写入（brainstorm.md / prd.md / user_stories.md / sdd-US-*.md /
+  traceability.md）且通过对应门禁。
+
 ## 流程
 
 1. **开场**：收到新需求时，先检查是否已有 `project_state.md`（列目录找同 slug 目录）。
