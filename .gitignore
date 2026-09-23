@@ -12,6 +12,10 @@ dist/
 # Node
 node_modules/
 frontend/dist/
+frontend/tsconfig.node.tsbuildinfo
+frontend/tsconfig.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
 
 # Generated documents (per-project workspaces)
 workspace/
