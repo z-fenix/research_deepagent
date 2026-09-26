@@ -17,6 +17,7 @@ from langchain_core.messages import AIMessage, ToolMessage
 
 from research_deepagent.prompts import (
     BDD_AGENT_INSTRUCTIONS,
+    ORCHESTRATOR_INSTRUCTIONS,
     PRD_AGENT_INSTRUCTIONS,
     SDD_AGENT_INSTRUCTIONS,
 )
@@ -197,3 +198,115 @@ def test_subagent_prompts_declare_schema_fields():
     # SDD 完成标准声明 SddPhaseReport 关键字段
     assert "test_cases_by_type" in SDD_AGENT_INSTRUCTIONS
     assert "unresolved_violations" in SDD_AGENT_INSTRUCTIONS
+
+
+def test_subagent_intermediate_tool_calls_stay_out_of_orchestrator_context(
+    built_agent_module,
+):
+    """Context Quarantine：子 Agent 的中间工具调用不泄漏进主图上下文。
+
+    脚本：编排者发起 task(subagent_type="prd-agent") → 子 Agent 内部先调用
+    write_file 写一个临时文件 → 子 Agent 返回结构化 JSON → 编排者收尾。
+    断言：
+    a. 主图 result 的 messages 中不存在 write_file 的 AIMessage / ToolMessage
+       （子 Agent 的中间调用未泄漏）；
+    b. 该文件确实写入 VFS backend（隔离的是上下文，不是存储）；
+    c. 主图恰好一条 task 对应的 ToolMessage，且内容可被 PrdPhaseReport 解析。
+    """
+    agent_module, workspace = built_agent_module
+    scripted_report = (
+        '{"direction": "面向个人知识管理的工作台",'
+        ' "requirements": [{"priority": "P0", "title": "收藏", "id": "REQ-001"}],'
+        ' "glossary_terms": 1,'
+        ' "open_questions": [],'
+        ' "brainstorm_path": "demo/prd/brainstorm.md",'
+        ' "prd_path": "demo/prd/prd.md"}'
+    )
+    brainstorm_content = "# 头脑风暴\n\n方向 A：面向个人知识管理的工作台\n"
+    model = _FakeToolChatModel(
+        provider=agent_module.MODEL_PROVIDER,
+        messages=iter(
+            [
+                # 编排者：委派 prd-agent
+                AIMessage(
+                    content="",
+                    tool_calls=[
+                        {
+                            "name": "task",
+                            "args": {
+                                "subagent_type": "prd-agent",
+                                "description": "做 PRD，slug=demo",
+                            },
+                            "id": "call_task_1",
+                            "type": "tool_call",
+                        }
+                    ],
+                ),
+                # 子 Agent（隔离上下文）：中间工具调用 write_file
+                AIMessage(
+                    content="",
+                    tool_calls=[
+                        {
+                            "name": "write_file",
+                            "args": {
+                                "file_path": "demo/prd/brainstorm.md",
+                                "content": brainstorm_content,
+                            },
+                            "id": "call_write_1",
+                            "type": "tool_call",
+                        }
+                    ],
+                ),
+                # 子 Agent：结构化最终报告
+                AIMessage(content=scripted_report),
+                # 编排者：收尾
+                AIMessage(content="PRD 阶段完成，等待确认。"),
+            ]
+        ),
+    )
+    backend = agent_module.create_backend(root=workspace)
+    graph = agent_module.build_deep_agent(model=model, backend=backend)
+
+    result = graph.invoke(
+        {"messages": [{"role": "user", "content": "新需求，slug=demo"}]}
+    )
+
+    # a. 子 Agent 的中间 write_file 调用未泄漏进主图上下文
+    for message in result["messages"]:
+        if isinstance(message, AIMessage):
+            called_names = [tc["name"] for tc in (message.tool_calls or [])]
+            assert "write_file" not in called_names
+        elif isinstance(message, ToolMessage):
+            assert message.name != "write_file"
+
+    # b. 隔离的是上下文，不是存储：文件确实写入 VFS backend
+    read_result = backend.read("/demo/prd/brainstorm.md")
+    assert not read_result.error
+    assert read_result.file_data["content"] == brainstorm_content
+
+    # c. 主图恰好一条 task 对应的 ToolMessage，且为结构化阶段报告
+    task_messages = [
+        m
+        for m in result["messages"]
+        if isinstance(m, ToolMessage) and m.name == "task"
+    ]
+    assert len(task_messages) == 1
+    report = PrdPhaseReport.model_validate_json(task_messages[0].content)
+    assert report.direction == "面向个人知识管理的工作台"
+    assert task_messages[0].content == report.model_dump_json()
+
+
+def test_orchestrator_prompt_declares_delegation_conventions():
+    # 只通过 task 工具委派给三个具名子 Agent，绝不自行撰写阶段文档
+    assert "task" in ORCHESTRATOR_INSTRUCTIONS
+    assert "prd-agent" in ORCHESTRATOR_INSTRUCTIONS
+    assert "bdd-agent" in ORCHESTRATOR_INSTRUCTIONS
+    assert "sdd-agent" in ORCHESTRATOR_INSTRUCTIONS
+    assert "绝不自行撰写阶段文档" in ORCHESTRATOR_INSTRUCTIONS
+    # 委派消息必须自带完整上下文
+    assert "完整上下文" in ORCHESTRATOR_INSTRUCTIONS
+    assert "用户意见原文" in ORCHESTRATOR_INSTRUCTIONS
+    # 子 Agent 在隔离上下文中工作，编排者只消费其返回的（结构化）摘要
+    assert "隔离上下文" in ORCHESTRATOR_INSTRUCTIONS
+    assert "结构化" in ORCHESTRATOR_INSTRUCTIONS
+    assert "不复述" in ORCHESTRATOR_INSTRUCTIONS
