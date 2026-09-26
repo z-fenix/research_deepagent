@@ -13,6 +13,11 @@ from datetime import datetime  # noqa: F401 - kept per SDD brief head
 from pathlib import Path
 
 from deepagents import create_deep_agent
+from deepagents.profiles import (
+    GeneralPurposeSubagentProfile,
+    HarnessProfile,
+    register_harness_profile,
+)
 from dotenv import load_dotenv
 from langchain.agents.middleware import TodoListMiddleware
 from langchain.chat_models import init_chat_model
@@ -22,7 +27,6 @@ from research_deepagent.prompts import (
     ORCHESTRATOR_INSTRUCTIONS,
     PRD_AGENT_INSTRUCTIONS,
     SDD_AGENT_INSTRUCTIONS,
-    TASK_DESCRIPTION_PREFIX,
 )
 from research_deepagent.tools import tavily_search
 from research_deepagent.validators.lc_tools import (
@@ -134,6 +138,15 @@ elif MODEL_PROVIDER == "google_genai":
         MODEL_INIT_KWARGS["base_url"] = _nonempty_env("GOOGLE_API_BASE")
 
 model = init_chat_model(**MODEL_INIT_KWARGS)
+
+# Disable deepagents' auto-added default `general-purpose` subagent so the
+# orchestrator can only delegate to the named phase sub-agents below.
+# Registration is global and additive (re-registration on test reload merges
+# idempotently), keyed by the resolved model provider.
+register_harness_profile(
+    MODEL_PROVIDER,
+    HarnessProfile(general_purpose_subagent=GeneralPurposeSubagentProfile(enabled=False)),
+)
 
 WORKSPACE_ROOT = Path(os.getenv("DOCS_WORKSPACE_DIR", "./workspace")).resolve()
 WORKSPACE_ROOT.mkdir(parents=True, exist_ok=True)

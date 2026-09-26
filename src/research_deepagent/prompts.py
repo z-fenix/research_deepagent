@@ -294,7 +294,3 @@ type ∈ 单元|集成|端到端；pass 必须写具体可判定的通过标准>
 
 返回：SDD 文件清单 + 测试用例总数（按 type 分布）+ 校验结果摘要。
 """
-
-TASK_DESCRIPTION_PREFIX = """Delegate a task to a specialized sub-agent with isolated context. Available agents for delegation are:
-{other_agents}
-"""
