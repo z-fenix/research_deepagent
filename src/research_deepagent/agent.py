@@ -28,6 +28,11 @@ from research_deepagent.prompts import (
     PRD_AGENT_INSTRUCTIONS,
     SDD_AGENT_INSTRUCTIONS,
 )
+from research_deepagent.schemas import (
+    BddPhaseReport,
+    PrdPhaseReport,
+    SddPhaseReport,
+)
 from research_deepagent.tools import tavily_search
 from research_deepagent.validators.lc_tools import (
     validate_traceability,
@@ -164,6 +169,7 @@ prd_agent = {
         "委派时必须提供项目 slug 和用户需求（或修改意见）。"
     ),
     "system_prompt": PRD_AGENT_INSTRUCTIONS,
+    "response_format": PrdPhaseReport,
     "tools": [tavily_search, *pencli_tools],
 }
 
@@ -174,6 +180,7 @@ bdd_agent = {
         "校验器强制闭合规则。委派时必须提供项目 slug。"
     ),
     "system_prompt": BDD_AGENT_INSTRUCTIONS,
+    "response_format": BddPhaseReport,
     "tools": [validate_user_stories],
 }
 
@@ -184,6 +191,7 @@ sdd_agent = {
         "与追溯矩阵并用校验器检查。委派时必须提供项目 slug。"
     ),
     "system_prompt": SDD_AGENT_INSTRUCTIONS,
+    "response_format": SddPhaseReport,
     "tools": [validate_traceability],
 }
 

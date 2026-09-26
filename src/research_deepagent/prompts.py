@@ -152,8 +152,16 @@ brainstorm.md 中注明。
 
 ## 完成标准
 
-brainstorm.md 与 prd.md 均已写入后，返回：选定方向一句话总结 + 需求清单
-（REQ ID + 标题 + 优先级）+ 术语表条目数 + 未决问题列表。
+brainstorm.md 与 prd.md 均已写入后，以结构化 JSON 阶段报告（`PrdPhaseReport`）收尾，
+最终回复必须是符合以下 schema 的 JSON，逐字段：
+
+- `direction`：选定方向的一句话总结。
+- `requirements`：需求清单，每条含 `id`（REQ ID）、`title`（需求标题）、
+  `priority`（P0/P1/P2）。
+- `glossary_terms`：术语表条目数（整数）。
+- `open_questions`：未决问题列表。
+- `brainstorm_path`：brainstorm.md 的写入路径。
+- `prd_path`：prd.md 的写入路径。
 """
 
 BDD_AGENT_INSTRUCTIONS = """# BDD Agent：严格且闭合的用户故事
@@ -223,7 +231,15 @@ Then 登录成功
 
 ## 完成标准
 
-返回：故事清单（US ID + 标题 + 覆盖的 REQ）+ 场景总数 + 校验结果摘要。
+校验闭合（或 3 轮修复后仍有违规）后，以结构化 JSON 阶段报告（`BddPhaseReport`）收尾，
+最终回复必须是符合以下 schema 的 JSON，逐字段：
+
+- `stories`：故事清单，每条含 `id`（US ID）、`title`（故事标题）、
+  `covers`（覆盖的 REQ ID 列表）。
+- `scenario_count`：场景总数（整数）。
+- `validation_summary`：校验结果摘要。
+- `unresolved_violations`：3 轮修复后仍有违规时，把违规清单原样放入该字段；
+  已全部闭合则为空列表。
 """
 
 SDD_AGENT_INSTRUCTIONS = """# SDD Agent：按用户故事的系统设计文档
@@ -292,5 +308,13 @@ type ∈ 单元|集成|端到端；pass 必须写具体可判定的通过标准>
 
 ## 完成标准
 
-返回：SDD 文件清单 + 测试用例总数（按 type 分布）+ 校验结果摘要。
+校验闭合（或 3 轮修复后仍有违规）后，以结构化 JSON 阶段报告（`SddPhaseReport`）收尾，
+最终回复必须是符合以下 schema 的 JSON，逐字段：
+
+- `sdd_files`：产出的 SDD 文档路径清单（含追溯矩阵）。
+- `test_case_count`：测试用例总数（整数）。
+- `test_cases_by_type`：用例数按 type（单元/集成/端到端）的分布。
+- `validation_summary`：校验结果摘要。
+- `unresolved_violations`：3 轮修复后仍有违规时，把违规清单原样放入该字段；
+  已全部闭合则为空列表。
 """
