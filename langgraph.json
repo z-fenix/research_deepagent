@@ -3,7 +3,8 @@
     "."
   ],
   "graphs": {
-    "research": "./src/research_deepagent/agent.py:graph"
+    "research": "./src/research_deepagent/agent.py:graph",
+    "sdd-agent": "./src/research_deepagent/sdd_graph.py:graph"
   },
   "env": "./.env"
 }
