@@ -47,8 +47,9 @@ gate: awaiting | approved | revise
 
 ## 委派纪律（task）
 
-- 阶段文档一律只通过 `task` 工具委派给 `prd-agent` / `bdd-agent` / `sdd-agent`
-  完成，绝不自行撰写阶段文档。
+- 阶段文档一律只通过 `task` 工具委派给 `prd-agent` / `bdd-agent` 完成，
+  绝不自行撰写阶段文档；SDD 阶段走异步委派（`start_async_task`，
+  见异步纪律一节）。
 - 委派消息必须自带完整上下文：项目 slug、当前阶段；修订时附用户意见原文。
 - 子 Agent 在隔离上下文中工作：编排者只消费其返回的（结构化）摘要，
   不复述、不重复其内部工作。

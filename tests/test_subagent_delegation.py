@@ -298,7 +298,7 @@ def test_subagent_intermediate_tool_calls_stay_out_of_orchestrator_context(
 
 
 def test_orchestrator_prompt_declares_delegation_conventions():
-    # 只通过 task 工具委派给三个具名子 Agent，绝不自行撰写阶段文档
+    # 只通过 task 工具委派给具名子 Agent，绝不自行撰写阶段文档
     assert "task" in ORCHESTRATOR_INSTRUCTIONS
     assert "prd-agent" in ORCHESTRATOR_INSTRUCTIONS
     assert "bdd-agent" in ORCHESTRATOR_INSTRUCTIONS
@@ -311,3 +311,14 @@ def test_orchestrator_prompt_declares_delegation_conventions():
     assert "隔离上下文" in ORCHESTRATOR_INSTRUCTIONS
     assert "结构化" in ORCHESTRATOR_INSTRUCTIONS
     assert "不复述" in ORCHESTRATOR_INSTRUCTIONS
+
+    # SDD 转异步委派后，「委派纪律（task）」一节只允许同步 task 工具
+    # 指向 prd-agent / bdd-agent（须钉住新现实，防止旧文本回潮）
+    delegation_section = ORCHESTRATOR_INSTRUCTIONS[
+        ORCHESTRATOR_INSTRUCTIONS.index("## 委派纪律（task）"):
+        ORCHESTRATOR_INSTRUCTIONS.index("## 异步纪律（async task）")
+    ]
+    assert "`prd-agent` / `bdd-agent`" in delegation_section
+    assert "sdd-agent" not in delegation_section
+    assert "SDD 阶段走异步委派" in delegation_section
+    assert "start_async_task" in delegation_section
