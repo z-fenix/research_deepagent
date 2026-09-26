@@ -1,12 +1,13 @@
 """具名子 Agent 委派边界（禁用 deepagents 默认 general-purpose 子 Agent）。
 
 覆盖三件事：
-1. task 工具描述的 "Available agent types" 列表只暴露 prd-agent / bdd-agent /
-   sdd-agent 三个具名阶段子 Agent，编排者无法委派给默认附加的
-   general-purpose 子 Agent（经 HarnessProfile 关闭）；
+1. task 工具描述的 "Available agent types" 列表只暴露 prd-agent / bdd-agent
+   两个具名阶段子 Agent（sdd-agent 已转异步委派，不再走同步 task 工具），
+   编排者无法委派给默认附加的 general-purpose 子 Agent（经 HarnessProfile 关闭）；
 2. build_deep_agent 返回的图仍然可构建（冒烟）；
-3. 三个子 Agent 声明 response_format，task 工具的 ToolMessage 回传可被
-   对应 Pydantic 模型解析的结构化阶段报告。
+3. prd/bdd 子 Agent 声明 response_format，task 工具的 ToolMessage 回传可被
+   对应 Pydantic 模型解析的结构化阶段报告（sdd 的 SddPhaseReport 由 sdd 独立图
+   顶层声明，见 tests/test_async_sdd.py）。
 """
 
 import itertools
@@ -24,10 +25,11 @@ from research_deepagent.prompts import (
 from research_deepagent.schemas import (
     BddPhaseReport,
     PrdPhaseReport,
-    SddPhaseReport,
 )
 
-NAMED_SUBAGENTS = ("prd-agent", "bdd-agent", "sdd-agent")
+# 同步 task 工具只暴露 PRD / BDD 两个阶段子 Agent；SDD 转异步委派
+# （AsyncSubAgent，见 tests/test_async_sdd.py）
+NAMED_SUBAGENTS = ("prd-agent", "bdd-agent")
 
 
 class _FakeToolChatModel(GenericFakeChatModel):
@@ -104,6 +106,8 @@ def test_task_tool_exposes_only_named_subagents(built_graph):
     listing = _available_agent_types_section(_task_tool_description(graph))
     for name in NAMED_SUBAGENTS:
         assert f"- {name}:" in listing
+    # sdd-agent 已转异步委派（start_async_task），不再出现在同步 task 列表
+    assert "sdd-agent" not in listing
     # 默认附加的 general-purpose 子 Agent 已被 HarnessProfile 关闭
     assert "general-purpose" not in listing
 
@@ -126,7 +130,6 @@ def test_subagent_specs_declare_phase_report_response_format(built_graph):
     agent_module, _ = built_graph
     assert agent_module.prd_agent["response_format"] is PrdPhaseReport
     assert agent_module.bdd_agent["response_format"] is BddPhaseReport
-    assert agent_module.sdd_agent["response_format"] is SddPhaseReport
 
 
 def test_task_toolmessage_carries_parseable_phase_report(built_agent_module):

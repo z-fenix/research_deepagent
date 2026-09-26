@@ -1,8 +1,10 @@
 """PRD→BDD→SDD document-generation graph, served by `agentseek-api dev`.
 
-Pure deepagents + LangChain. The orchestrator delegates to three phase
-sub-agents (PRD / BDD / SDD); documents land under DOCS_WORKSPACE_DIR via
-the pluggable VFS backends (DOCS_BACKEND, default disk).
+Pure deepagents + LangChain. The orchestrator delegates the PRD/BDD phases to
+two sync sub-agents via the `task` tool; the SDD phase is delegated to a
+standalone graph through AsyncSubAgent (in-process ASGI transport, five
+remote-control tools). Documents land under DOCS_WORKSPACE_DIR via the
+pluggable VFS backends (DOCS_BACKEND, default disk).
 """
 
 from __future__ import annotations
@@ -12,7 +14,7 @@ import warnings
 from datetime import datetime  # noqa: F401 - kept per SDD brief head
 from pathlib import Path
 
-from deepagents import create_deep_agent
+from deepagents import AsyncSubAgent, create_deep_agent
 from deepagents.profiles import (
     GeneralPurposeSubagentProfile,
     HarnessProfile,
@@ -26,16 +28,13 @@ from research_deepagent.prompts import (
     BDD_AGENT_INSTRUCTIONS,
     ORCHESTRATOR_INSTRUCTIONS,
     PRD_AGENT_INSTRUCTIONS,
-    SDD_AGENT_INSTRUCTIONS,
 )
 from research_deepagent.schemas import (
     BddPhaseReport,
     PrdPhaseReport,
-    SddPhaseReport,
 )
 from research_deepagent.tools import tavily_search
 from research_deepagent.validators.lc_tools import (
-    validate_traceability,
     validate_user_stories,
 )
 from research_deepagent.vfs import create_backend
@@ -184,16 +183,21 @@ bdd_agent = {
     "tools": [validate_user_stories],
 }
 
-sdd_agent = {
-    "name": "sdd-agent",
-    "description": (
+# SDD 阶段改为异步委派：AsyncSubAgent 条目由 create_deep_agent 按
+# "graph_id" in spec 识别并分流到 AsyncSubAgentMiddleware（五个 async task
+# 工具）。graph_id 指向 Task 1 注册的独立 sdd 图（langgraph.json 键
+# "sdd-agent"，模块 research_deepagent.sdd_graph，其顶层声明
+# response_format=SddPhaseReport）；不传 url 走 ASGI 进程内传输（同部署）。
+sdd_async_agent = AsyncSubAgent(
+    name="sdd-agent",
+    description=(
         "SDD 阶段 sub-agent：依据已确认的 BDD 用户故事逐条产出系统设计文档"
         "与追溯矩阵并用校验器检查。委派时必须提供项目 slug。"
+        "后台异步执行，产出经 check_async_task 回收。"
     ),
-    "system_prompt": SDD_AGENT_INSTRUCTIONS,
-    "response_format": SddPhaseReport,
-    "tools": [validate_traceability],
-}
+    graph_id="sdd-agent",
+)
+
 
 def build_deep_agent(model, *, backend, subagents=None):
     """Assemble the orchestrator graph; injectable model/backend for tests.
@@ -201,14 +205,18 @@ def build_deep_agent(model, *, backend, subagents=None):
     TodoListMiddleware provides write_todos + todos state for planning;
     planning itself stays at the orchestrator level (named sub-agents keep
     their own middleware stacks and do not track the shared todo list).
+    skills=["/skills/"] mounts the workspace skills directory (content lands
+    in Task 3); a missing directory only logs a warning (verified empirically
+    against deepagents 0.7.13).
     """
     return create_deep_agent(
         model=model,
         tools=[],
         system_prompt=ORCHESTRATOR_INSTRUCTIONS,
-        subagents=subagents if subagents is not None else [prd_agent, bdd_agent, sdd_agent],
+        subagents=subagents if subagents is not None else [prd_agent, bdd_agent, sdd_async_agent],
         backend=backend,
         middleware=[TodoListMiddleware()],
+        skills=["/skills/"],
     )
 
 

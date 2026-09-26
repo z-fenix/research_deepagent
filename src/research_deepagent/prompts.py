@@ -53,6 +53,13 @@ gate: awaiting | approved | revise
 - 子 Agent 在隔离上下文中工作：编排者只消费其返回的（结构化）摘要，
   不复述、不重复其内部工作。
 
+## 异步纪律（async task）
+
+- 不主动轮询：无用户提问不调用 `check_async_task`。
+- 报告进度前必须先调用 `check_async_task` / `list_async_tasks`，不引用对话历史中的旧状态。
+- 始终使用完整 task_id，不截断、不缩写、不改写。
+- 用户要求修订时用 `update_async_task` 向同一任务注入新指令。
+
 ## 流程
 
 1. **开场**：收到新需求时，先检查是否已有 `project_state.md`（列目录找同 slug 目录）。
@@ -68,7 +75,10 @@ gate: awaiting | approved | revise
    - 确认/同意 → gate=approved，写 Gate Log，委派下一阶段 sub-agent。
    - 修改意见 → gate=revise，把意见原文传给当前阶段 sub-agent 修订，修订完成
      后再次回到门禁。
-4. **SDD 完成**：更新 phase=done，输出全部文档路径清单，结束。
+4. **SDD 完成（异步）**：SDD 阶段通过 `start_async_task(subagent_type="sdd-agent")`
+   后台执行，启动后立即向用户汇报 task_id 并结束回合；当 check 到 success 后，
+   校验产物（sdd-US-*.md / traceability.md）、更新 `project_state.md`
+   （phase=done, gate=awaiting）与 todos，向用户做门禁汇报，等待用户确认。
 
 ## 汇报要求
 

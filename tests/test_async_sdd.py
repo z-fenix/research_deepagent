@@ -1,12 +1,17 @@
 """SDD 独立图 + langgraph.json 注册（task06：SDD 阶段转 Async Subagent）。
 
-覆盖三件事：
+覆盖六件事：
 1. langgraph.json 可解析，且同时注册 research 与 sdd-agent 两个图；
 2. sdd 独立图可构建（fake 模型注入 + 临时 backend，冒烟）；
 3. fake 模型返回 SddPhaseReport JSON 时，顶层 response_format 接线生效。
    已在 .venv 实证最终形态：图状态以 ``structured_response`` 承载
    SddPhaseReport 实例，最终 AIMessage 为模型原始文本透传——与子 Agent
    经 ToolMessage 的 model_dump_json() 规范化回传形态不同。
+4. 编排者的 tool node 暴露五个 async task 工具（SDD 转异步委派）；
+5. 编排者图 state schema 含 ``async_tasks`` 注解（AsyncSubAgentState）；
+6. ORCHESTRATOR_INSTRUCTIONS 声明异步纪律关键约定（关键词与提示词
+   文字严格一致，风格同 planning/delegation 契约测试）。
+   编排器 fake 模型与 fixture 复用 tests/test_subagent_delegation.py（命名稳定）。
 """
 
 import importlib
@@ -18,7 +23,10 @@ import pytest
 from langchain_core.language_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage
 
+from research_deepagent.prompts import ORCHESTRATOR_INSTRUCTIONS
 from research_deepagent.schemas import SddPhaseReport
+
+from tests.test_subagent_delegation import built_agent_module, built_graph
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 LANGGRAPH_JSON = REPO_ROOT / "langgraph.json"
@@ -126,3 +134,78 @@ def test_sdd_graph_returns_structured_sdd_phase_report(sdd_graph_module, tmp_pat
     assert report.unresolved_violations == []
     # 最终 AIMessage 为原始文本透传（非规范化重序列化）
     assert result["messages"][-1].content == scripted_report
+
+
+ASYNC_TASK_TOOLS = (
+    "start_async_task",
+    "check_async_task",
+    "update_async_task",
+    "cancel_async_task",
+    "list_async_tasks",
+)
+
+
+def test_orchestrator_exposes_five_async_task_tools(built_graph):
+    """SDD 转异步委派：编排者 tool node 暴露五个 async task 工具。"""
+    _, graph = built_graph
+    tools_by_name = graph.builder.nodes["tools"].runnable.tools_by_name
+    for name in ASYNC_TASK_TOOLS:
+        assert name in tools_by_name
+
+
+def test_orchestrator_state_schema_declares_async_tasks(built_graph):
+    """AsyncSubAgentMiddleware 挂载后，图 state schema 含 async_tasks 注解。"""
+    _, graph = built_graph
+    assert "async_tasks" in graph.builder.state_schema.__annotations__
+
+
+def test_sdd_async_subagent_spec(built_agent_module):
+    """默认 subagents 中的 sdd 条目为 AsyncSubAgent（graph_id 指向独立图）。
+
+    create_deep_agent 按 ``"graph_id" in spec`` 识别异步条目；不传 url 走
+    ASGI 进程内传输（同部署）。描述沿用原 sdd-agent 描述并注明后台异步
+    执行与回收方式。
+    """
+    agent_module, _ = built_agent_module
+    spec = agent_module.sdd_async_agent
+    assert spec["name"] == "sdd-agent"
+    assert spec["graph_id"] == "sdd-agent"
+    assert "url" not in spec
+    assert "后台异步执行" in spec["description"]
+    assert "check_async_task" in spec["description"]
+    # 同步 prd/bdd 字典不携带 graph_id（仍走同步 task 工具）
+    assert "graph_id" not in agent_module.prd_agent
+    assert "graph_id" not in agent_module.bdd_agent
+
+
+def test_orchestrator_prompt_declares_async_discipline():
+    """ORCHESTRATOR_INSTRUCTIONS 声明异步委派与异步纪律关键约定。"""
+    # 流程 SDD 段：SDD 阶段通过 start_async_task 后台执行，启动后立即
+    # 汇报 task_id 并结束回合
+    assert 'start_async_task(subagent_type="sdd-agent")' in ORCHESTRATOR_INSTRUCTIONS
+    assert "task_id" in ORCHESTRATOR_INSTRUCTIONS
+    assert "结束回合" in ORCHESTRATOR_INSTRUCTIONS
+    # check 到 success 后校验产物、更新 project_state.md 与 todos、门禁汇报
+    assert "sdd-US-*.md" in ORCHESTRATOR_INSTRUCTIONS
+    assert "traceability.md" in ORCHESTRATOR_INSTRUCTIONS
+    assert "phase=done" in ORCHESTRATOR_INSTRUCTIONS
+    assert "gate=awaiting" in ORCHESTRATOR_INSTRUCTIONS
+    # 新增「异步纪律（async task）」一节，紧跟「委派纪律（task）」之后
+    assert "## 异步纪律（async task）" in ORCHESTRATOR_INSTRUCTIONS
+    assert (
+        ORCHESTRATOR_INSTRUCTIONS.index("## 委派纪律（task）")
+        < ORCHESTRATOR_INSTRUCTIONS.index("## 异步纪律（async task）")
+        < ORCHESTRATOR_INSTRUCTIONS.index("## 流程")
+    )
+    # 不主动轮询：无用户提问不调用 check_async_task
+    assert "不主动轮询" in ORCHESTRATOR_INSTRUCTIONS
+    assert "无用户提问不调用 `check_async_task`" in ORCHESTRATOR_INSTRUCTIONS
+    # 报告进度前必须先调用 check_async_task / list_async_tasks
+    assert "`check_async_task` / `list_async_tasks`" in ORCHESTRATOR_INSTRUCTIONS
+    assert "不引用对话历史中的旧状态" in ORCHESTRATOR_INSTRUCTIONS
+    # 始终使用完整 task_id，不截断、不缩写、不改写
+    assert "始终使用完整 task_id" in ORCHESTRATOR_INSTRUCTIONS
+    assert "不截断、不缩写、不改写" in ORCHESTRATOR_INSTRUCTIONS
+    # 修订意见经 update_async_task 注入同一任务
+    assert "update_async_task" in ORCHESTRATOR_INSTRUCTIONS
+    assert "向同一任务注入新指令" in ORCHESTRATOR_INSTRUCTIONS
