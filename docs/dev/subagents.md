@@ -186,6 +186,9 @@ uv run pytest tests/ -q                              # 全量（189 passed, 1 wa
   缺失则退化为子 Agent 原始文本透传，`content == report.model_dump_json()`
   断言即可识破。
 
+sdd 独立图与异步委派侧的测试（`tests/test_async_sdd.py`）复用同一 fake 模式
+（含独立图顶层 `response_format` 的回传形态差异），见 `async-subagents.md` §4.1。
+
 ## 6. 扩展指南
 
 - **新增第四个专业子 Agent**：三步——

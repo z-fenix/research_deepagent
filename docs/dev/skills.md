@@ -14,7 +14,7 @@ Skills 把「模型可能用到的操作指引」存为可寻址的文档，**�
   `<WORKSPACE_ROOT>/skills/<name>/SKILL.md`（disk backend，根目录即
   `WORKSPACE_ROOT`）；
 - 挂载：编排者图与 sdd 独立图两处 `skills=["/skills/"]`
-  （`agent.py:246` / `sdd_graph.py:41`）；
+  （`agent.py:219` / `sdd_graph.py:41`）；
 - 目前只有一个种子 skill：`sdd-quality-checklist`（SDD 写作质量清单）。
 
 渐进式披露（Progressive Disclosure）三级加载在本仓库的路径形态
@@ -44,7 +44,7 @@ Level 1 只花几十 token 让模型「知道有这个东西、什么时候该�
 | 文件 | 职责 |
 |---|---|
 | `workspace/skills/sdd-quality-checklist/SKILL.md` | 种子 skill（50 行，≤100 行约定）：frontmatter（`:1`-`:4`，中文 description 写具体触发条件）、开篇 advisory 声明（`:6`-`:9`）、四节清单（边界定义完备性 `:11` / 接口与数据契约 `:20` / 校验规则与异常场景对应 `:28` / pass 标准可判定性 `:37`）、使用方式（`:46`） |
-| `src/research_deepagent/agent.py` | 编排者挂载点：`build_deep_agent` 的 `create_deep_agent(..., skills=["/skills/"])`（`agent.py:246`）；docstring 记录「缺目录仅告警」实证结论 |
+| `src/research_deepagent/agent.py` | 编排者挂载点：`build_deep_agent` 的 `create_deep_agent(..., skills=["/skills/"])`（`agent.py:219`）；docstring 记录「缺目录仅告警」实证结论 |
 | `src/research_deepagent/sdd_graph.py` | sdd 独立图挂载点：`build_sdd_graph` 内同样 `skills=["/skills/"]`（`sdd_graph.py:41`）——异步委派的远端图也需要 SDD 质量清单 |
 | `.gitignore` | `workspace/*` + `!workspace/skills/`（种子入库、运行产物不入库） |
 | `tests/test_skills.py` | 渐进式披露接线与行为验证（5 用例，见 §4） |
@@ -119,7 +119,7 @@ uv run pytest tests/ -q                 # 全量（201 passed, 1 warning）
 
 | 症状 | 排查方向 |
 |---|---|
-| system message 里没有 `## Skills System` | ① 挂载参数是否还在（`agent.py:246` / `sdd_graph.py:41`）；② 目录位置：`/skills/` 是 **VFS 内路径**，对应磁盘 `<WORKSPACE_ROOT>/skills/`——`DOCS_WORKSPACE_DIR` 指错根目录即扫不到；③ 子目录里必须有 `SKILL.md`，缺则静默跳过（负例测试可复现该行为）；④ 是否在看 prd/bdd 子 Agent 的上下文（具名子 Agent 未挂 skills，见 §5） |
+| system message 里没有 `## Skills System` | ① 挂载参数是否还在（`agent.py:219` / `sdd_graph.py:41`）；② 目录位置：`/skills/` 是 **VFS 内路径**，对应磁盘 `<WORKSPACE_ROOT>/skills/`——`DOCS_WORKSPACE_DIR` 指错根目录即扫不到；③ 子目录里必须有 `SKILL.md`，缺则静默跳过（负例测试可复现该行为）；④ 是否在看 prd/bdd 子 Agent 的上下文（具名子 Agent 未挂 skills，见 §5） |
 | 提示词里出现 "Skills Skills" 字样 | 上游观感行为：source 标签对叶节点 `skills` 且无父目录时退化为 `Skills`，位置行渲染成 `**Skills Skills**: /skills/`。仅影响提示词观感，不影响功能；如要消除，改传 `(path, label)` 元组 `skills=[("/skills/", "Workspace")]`（本仓库为保持与 brief 逐字一致未做） |
 | skill 正文读取失败 / Level 2 拿不到内容 | 读取路径必须是注入条目里给的 VFS 路径 `/skills/<name>/SKILL.md`；backend 根（`WORKSPACE_ROOT`）变化后旧路径失效；确认读的是文件而非目录 |
 | 新加的 skill 没被注入 | 目录层级必须恰好一层：`/skills/<name>/SKILL.md`——扫描只认一级子目录下的 `SKILL.md`，更深层不扫；`langgraph dev` 需重启才会重新扫描（构建期注入元数据）；frontmatter 缺 `name`/`description` 时条目不完整 |

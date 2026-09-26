@@ -37,8 +37,8 @@ AsyncSubAgentMiddleware 提供的五把「遥控器」：
 | 只异步化 SDD，PRD / BDD 保持同步 `task` | SDD 逐故事产出耗时最长（每故事一份文档 + 校验修复循环），异步化收益最大；PRD / BDD 产出在委派当回合内即可回收、紧跟着做门禁汇报，本流程里用户确认后才进入下一阶段，同步等待点天然存在，异步化不省时间反而把一次门禁汇报拆成多回合 |
 | sdd 独立图 + `langgraph.json` 注册（键 `sdd-agent`，`langgraph.json:7`） | AsyncSubAgent 委派的对象是「远端图」（`graph_id` 即远端 assistant ID），不是进程内 spec 字典，所以 SDD 阶段必须独立成图注册。本仓库用单进程 `langgraph dev` 部署，`research` 与 `sdd-agent` 两个图在同一 ASGI 进程内：AsyncSubAgent 不传 `url` 时走进程内 ASGI 传输，无需额外网络配置。部署进程本就加载 `agent.py`，`sdd_graph.py` 复用其 `model` 与 `WORKSPACE_ROOT`，导入幂等 |
 | `response_format=SddPhaseReport` 放在 sdd 图顶层（`sdd_graph.py:40`）而非 AsyncSubAgent 字段 | deepagents 0.7.13 的 `AsyncSubAgent` TypedDict 只有 `name` / `description` / `graph_id` / `url` / `headers` 字段，**没有 `response_format`**——结构化阶段报告只能由被委派的图自己产出。注意回传形态与同步子 Agent 不同（实证，见 4.2）：独立图顶层 `response_format` 的结果以 state 的 **`structured_response`** 键承载解析后的 `SddPhaseReport` 实例，最终 AIMessage 是模型原始文本透传；同步子 Agent 则是 ToolMessage 里的 `model_dump_json()` 规范化 JSON |
-| 混挂分流机制：`"graph_id" in spec` 识别 | 同一个 `subagents=[...]` 列表里同步 dict 与 `AsyncSubAgent` 混挂（`agent.py:243`）；`create_deep_agent` 装配时按 spec 是否带 `graph_id` 分流——带则装配 AsyncSubAgentMiddleware（五工具 + `async_tasks` state），不带仍走同步 `task` 工具。识别是鸭子式的：`prd_agent` / `bdd_agent` 字典不带 `graph_id` 即保持同步 |
-| `skills=["/skills/"]` 无条件挂载 + 缺目录仅告警（`agent.py:246` / `sdd_graph.py:41`） | deepagents 0.7.13 实证：SkillsMiddleware 对缺失源目录仅 `logger.warning` 并记入私有 `skills_load_errors` state，构建与调用均不抛异常。因此接线（`agent.py`，先落）与种子内容（`workspace/skills/`，后落）可以解耦，运行期删掉 skills 目录也不会弄挂图。详见 `skills.md` |
+| 混挂分流机制：`"graph_id" in spec` 识别 | 同一个 `subagents=[...]` 列表里同步 dict 与 `AsyncSubAgent` 混挂（`agent.py:216`）；`create_deep_agent` 装配时按 spec 是否带 `graph_id` 分流——带则装配 AsyncSubAgentMiddleware（五工具 + `async_tasks` state），不带仍走同步 `task` 工具。识别是鸭子式的：`prd_agent` / `bdd_agent` 字典不带 `graph_id` 即保持同步 |
+| `skills=["/skills/"]` 无条件挂载 + 缺目录仅告警（`agent.py:219` / `sdd_graph.py:41`） | deepagents 0.7.13 实证：SkillsMiddleware 对缺失源目录仅 `logger.warning` 并记入私有 `skills_load_errors` state，构建与调用均不抛异常。因此接线（`agent.py`，先落）与种子内容（`workspace/skills/`，后落）可以解耦，运行期删掉 skills 目录也不会弄挂图。详见 `skills.md` |
 
 ## 3. 门禁语义变化
 
@@ -95,7 +95,7 @@ SDD 启动后 `todos` / `project_state.md` 的推进方式：
 
 | 文件 | 职责 |
 |---|---|
-| `src/research_deepagent/agent.py` | `sdd_async_agent = AsyncSubAgent(name="sdd-agent", ..., graph_id="sdd-agent")`（`agent.py:191`，不传 `url` = 进程内 ASGI）；`build_deep_agent` 默认 subagents 混挂 `[prd_agent, bdd_agent, sdd_async_agent]`（`agent.py:243`） |
+| `src/research_deepagent/agent.py` | `sdd_async_agent = AsyncSubAgent(name="sdd-agent", ..., graph_id="sdd-agent")`（`agent.py:191`，不传 `url` = 进程内 ASGI）；`build_deep_agent` 默认 subagents 混挂 `[prd_agent, bdd_agent, sdd_async_agent]`（`agent.py:216`） |
 | `src/research_deepagent/sdd_graph.py` | sdd 独立图：`build_sdd_graph`（`sdd_graph.py:28`）以 `system_prompt=SDD_AGENT_INSTRUCTIONS` + `tools=[validate_traceability]` + 顶层 `response_format=SddPhaseReport`（`:40`）构建；模块级 `graph`（`:45`）即注册目标 |
 | `langgraph.json` | `graphs` 注册 `"sdd-agent": "./src/research_deepagent/sdd_graph.py:graph"`（`:7`），与 `research` 同部署 |
 | `src/research_deepagent/prompts.py` | 编排者委派纪律（`:48`，第一条限定同步 task 只指 prd/bdd、SDD 走异步）、异步纪律（`:57`）、流程第 4 步（`:79`） |
