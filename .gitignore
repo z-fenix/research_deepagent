@@ -17,8 +17,10 @@ frontend/tsconfig.tsbuildinfo
 frontend/vite.config.js
 frontend/vite.config.d.ts
 
-# Generated documents (per-project workspaces)
-workspace/
+# Generated documents (per-project workspaces); the skills seed tree is
+# checked in (SkillsMiddleware scans <WORKSPACE_ROOT>/skills/<name>/SKILL.md)
+workspace/*
+!workspace/skills/
 
 # Env
 .env

@@ -26,13 +26,19 @@ from research_deepagent.vfs import create_backend
 
 
 def build_sdd_graph(model, *, backend):
-    """Assemble the standalone SDD graph; injectable model/backend for tests."""
+    """Assemble the standalone SDD graph; injectable model/backend for tests.
+
+    skills=["/skills/"] 挂载 VFS workspace 的 skills 目录（对应磁盘上的
+    <WORKSPACE_ROOT>/skills/<name>/SKILL.md）；目录缺失仅告警不报错
+    （deepagents 0.7.13 实证）。
+    """
     return create_deep_agent(
         model=model,
         system_prompt=SDD_AGENT_INSTRUCTIONS,
         tools=[validate_traceability],
         backend=backend,
         response_format=SddPhaseReport,
+        skills=["/skills/"],
     )
 
 
