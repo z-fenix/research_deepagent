@@ -278,6 +278,9 @@ def test_subagent_intermediate_tool_calls_stay_out_of_orchestrator_context(
             assert "write_file" not in called_names
         elif isinstance(message, ToolMessage):
             assert message.name != "write_file"
+    # 无论 name 字段如何，主图上下文里不能多出任何子 Agent 内部的工具结果
+    all_tool_messages = [m for m in result["messages"] if isinstance(m, ToolMessage)]
+    assert len(all_tool_messages) == 1
 
     # b. 隔离的是上下文，不是存储：文件确实写入 VFS backend
     read_result = backend.read("/demo/prd/brainstorm.md")
@@ -285,12 +288,7 @@ def test_subagent_intermediate_tool_calls_stay_out_of_orchestrator_context(
     assert read_result.file_data["content"] == brainstorm_content
 
     # c. 主图恰好一条 task 对应的 ToolMessage，且为结构化阶段报告
-    task_messages = [
-        m
-        for m in result["messages"]
-        if isinstance(m, ToolMessage) and m.name == "task"
-    ]
-    assert len(task_messages) == 1
+    assert len(task_messages := [m for m in all_tool_messages if m.name == "task"]) == 1
     report = PrdPhaseReport.model_validate_json(task_messages[0].content)
     assert report.direction == "面向个人知识管理的工作台"
     assert task_messages[0].content == report.model_dump_json()
