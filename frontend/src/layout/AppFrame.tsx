@@ -35,18 +35,23 @@ function DragHandle(props: {
   side: Side;
   left: number;
   onDrag: (dx: number) => void;
+  /** 按下时刻回调：宿主借此冻结拖拽基线（Review Focus 1：基线 = 按下宽度）。 */
+  onDragStart?: () => void;
+  /** 拖拽结束（up/cancel）回调：宿主借此清除基线。 */
+  onDragEnd?: () => void;
 }) {
   const [dragging, setDragging] = useState(false);
   const origin = useRef(0);
   const frame = useRef<number | null>(null);
   const latest = useRef(0);
-  const onDrag = useRef(props.onDrag);
-  onDrag.current = props.onDrag;
+  const handlers = useRef(props);
+  handlers.current = props;
 
   const emit = useCallback(() => {
-    onDrag.current(latest.current - origin.current);
+    handlers.current.onDrag(latest.current - origin.current);
   }, []);
   const schedule = useCallback((cb: () => void) => {
+    if (frame.current !== null) return; // 已有待执行帧，节流
     if (typeof requestAnimationFrame === "function") {
       frame.current = requestAnimationFrame(() => {
         frame.current = null;
@@ -63,6 +68,7 @@ function DragHandle(props: {
       frame.current = null;
       emit(); // 拖拽收尾时补发最后一帧增量，防止快速拖放丢增量
     }
+    handlers.current.onDragEnd?.();
   }, [emit]);
 
   return (
@@ -82,6 +88,7 @@ function DragHandle(props: {
         }
         origin.current = e.clientX;
         latest.current = e.clientX;
+        handlers.current.onDragStart?.();
         setDragging(true);
       }}
       onPointerMove={(e) => {
@@ -102,10 +109,28 @@ export function AppFrame({ layout, actions, sidebar, center, rightbar, frameRef 
   const state = layout ?? live.layout;
   const act = actions ?? live.actions;
 
+  // 回退路径的拖拽基线：按下时刻冻结的渲染宽度（Review Focus 1），
+  // 避免"当前渲染宽度 + 累计 dx"随前一次 set 的重渲染而叠加。
+  const sidebarBaseline = useRef<number | null>(null);
+  const rightbarBaseline = useRef<number | null>(null);
+
+  const beginSidebarGesture = useCallback(() => {
+    sidebarBaseline.current = state.cols.sidebar;
+  }, [state.cols.sidebar]);
+  const endSidebarGesture = useCallback(() => {
+    sidebarBaseline.current = null;
+  }, []);
+  const beginRightbarGesture = useCallback(() => {
+    rightbarBaseline.current = state.cols.rightbar;
+  }, [state.cols.rightbar]);
+  const endRightbarGesture = useCallback(() => {
+    rightbarBaseline.current = null;
+  }, []);
+
   const handleSidebarDrag = useCallback(
     (dx: number) => {
       if (act.onSidebarDrag !== undefined) act.onSidebarDrag(dx);
-      else act.setSidebar?.(state.cols.sidebar + dx);
+      else act.setSidebar?.((sidebarBaseline.current ?? state.cols.sidebar) + dx);
     },
     [act, state.cols.sidebar],
   );
@@ -113,7 +138,7 @@ export function AppFrame({ layout, actions, sidebar, center, rightbar, frameRef 
     (dx: number) => {
       // 右把手向左拖（dx < 0）= 变宽，因此上报反转后的增量
       if (act.onRightbarDrag !== undefined) act.onRightbarDrag(-dx);
-      else act.setRightbar?.(state.cols.rightbar - dx);
+      else act.setRightbar?.((rightbarBaseline.current ?? state.cols.rightbar) - dx);
     },
     [act, state.cols.rightbar],
   );
@@ -135,10 +160,22 @@ export function AppFrame({ layout, actions, sidebar, center, rightbar, frameRef 
         {state.cols.rightbar > 0 ? rightbar : null}
       </div>
       {!state.sidebarCollapsed && state.cols.sidebar > SIDEBAR_ICON_RAIL && (
-        <DragHandle side="sidebar" left={state.cols.sidebar} onDrag={handleSidebarDrag} />
+        <DragHandle
+          side="sidebar"
+          left={state.cols.sidebar}
+          onDrag={handleSidebarDrag}
+          onDragStart={beginSidebarGesture}
+          onDragEnd={endSidebarGesture}
+        />
       )}
       {state.rightbarTrack && state.cols.rightbar > 0 && (
-        <DragHandle side="rightbar" left={state.viewport - state.cols.rightbar} onDrag={handleRightbarDrag} />
+        <DragHandle
+          side="rightbar"
+          left={state.viewport - state.cols.rightbar}
+          onDrag={handleRightbarDrag}
+          onDragStart={beginRightbarGesture}
+          onDragEnd={endRightbarGesture}
+        />
       )}
     </div>
   );

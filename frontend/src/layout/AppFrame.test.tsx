@@ -1,9 +1,11 @@
 // frontend/src/layout/AppFrame.test.tsx
 // 任务 2 Step 1：先写失败测试（TDD）。
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useRef } from "react";
 import { AppFrame, type FrameLayout } from "./AppFrame";
+import { useFrameLayout } from "./useFrameLayout";
 
 function firePointer(el: Element, type: "pointerdown" | "pointermove" | "pointerup", x: number) {
   fireEvent(el, new MouseEvent(type, { bubbles: true, clientX: x, button: 0 }));
@@ -95,5 +97,49 @@ describe("AppFrame", () => {
     firePointer(handle, "pointermove", 820);
     firePointer(handle, "pointerup", 820);
     expect(onRightbarDrag).toHaveBeenCalledWith(80); // 右把手向左拖 = 变宽
+  });
+
+  it("applies fallback-path deltas against the press-time width without compounding", () => {
+    // Review Focus 1 回归：无 onSidebarDrag/onRightbarDrag 时走 setSidebar/setRightbar
+    // 回退路径，基线必须冻结在按下时刻的渲染宽度。使用真实 useFrameLayout 状态
+    // （setSidebar 会真正更新 cols.sidebar），并用假定时器逐帧推进 rAF：
+    // 按下 280，+10 → 290；再累计 +30 → 310。若叠加当前渲染宽度则会得到 320。
+    function LiveFrame() {
+      const ref = useRef<HTMLDivElement | null>(null);
+      const { layout, actions } = useFrameLayout(ref);
+      return (
+        <AppFrame
+          layout={layout}
+          actions={actions}
+          frameRef={ref}
+          sidebar={<div>left</div>}
+          center={<div>chat</div>}
+          rightbar={null}
+        />
+      );
+    }
+    vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame"] });
+    try {
+      render(<LiveFrame />);
+      const handle = screen.getByTestId("drag-sidebar");
+      firePointer(handle, "pointerdown", 100); // 基线冻结为 280
+      firePointer(handle, "pointermove", 110);
+      act(() => {
+        vi.advanceTimersByTime(16); // 第 1 帧：280 + 10
+      });
+      expect(screen.getByTestId("frame").style.gridTemplateColumns).toBe(
+        "290px minmax(400px, 1fr) minmax(0px, 0px)",
+      );
+      firePointer(handle, "pointermove", 130); // 累计 dx = 30
+      act(() => {
+        vi.advanceTimersByTime(16); // 第 2 帧：基线 280 + 30 = 310（不叠加为 320）
+      });
+      expect(screen.getByTestId("frame").style.gridTemplateColumns).toBe(
+        "310px minmax(400px, 1fr) minmax(0px, 0px)",
+      );
+      firePointer(handle, "pointerup", 130);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
