@@ -623,3 +623,17 @@ body { margin: 0; }
 
 /* workbench（task08 Task 5：右栏 ApprovalDock + TodoDock 容器） */
 .workbench { display: flex; flex-direction: column; gap: 0.5rem; }
+
+/* trajectory ledger（task08 二期） */
+.ledger { display: flex; flex-direction: column; height: 100%; }
+.ledger__controls { display: flex; gap: 8px; align-items: center; padding: 4px 0; }
+.ledger__row { border-bottom: 1px solid var(--border, #eef0f5); padding: 3px 2px; font-size: 13px; }
+.ledger__row--turn-header button { font-weight: 600; background: none; border: none; cursor: pointer; padding: 2px 0; }
+.ledger__row--request-header { color: var(--muted, #6b7280); display: flex; gap: 8px; font-size: 12px; }
+.ledger__row[data-match] { outline: 2px solid #f6c344; }
+.ledger__tool-head { display: flex; gap: 8px; background: none; border: none; cursor: pointer; padding: 2px 0; }
+.ledger__tool-status--pending { color: #b45309; }
+.ledger__tool-status--done { color: #15803d; }
+.ledger__json { background: var(--surface-2, #f7f8fb); padding: 6px; overflow-x: auto; }
+.ledger__json--hidden { display: none; }
+.ledger__json pre { margin: 0; font-size: 12px; white-space: pre-wrap; }
