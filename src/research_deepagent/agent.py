@@ -225,6 +225,33 @@ sdd_async_agent = AsyncSubAgent(
 )
 
 
+def _cap_recursion(graph, default_limit: int = 100):
+    """Cap the graph's default recursion depth.
+
+    deepagents/langchain 把默认 recursion_limit 硬编码为 9999:假模型或失控
+    循环会近乎无限迭代(每步还全量序列化历史),曾把 WSL 吃到全局 OOM(见
+    docs/WSL-排查与迁移经验.md 事件三/四)。调用方显式传入的
+    config["recursion_limit"] 不受影响。
+    """
+    def _with_limit(config):
+        config = dict(config) if config else {}
+        config.setdefault("recursion_limit", default_limit)
+        return config
+
+    _orig_invoke = graph.invoke
+    _orig_stream = graph.stream
+
+    def invoke(input, config=None, **kwargs):
+        return _orig_invoke(input, config=_with_limit(config), **kwargs)
+
+    def stream(input, config=None, **kwargs):
+        return _orig_stream(input, config=_with_limit(config), **kwargs)
+
+    graph.invoke = invoke
+    graph.stream = stream
+    return graph
+
+
 def _memory_routes() -> dict[str, StoreBackend]:
     """Dual-scope memory routes over the orchestrator's default backend.
 
@@ -288,6 +315,7 @@ def build_deep_agent(model, *, backend, subagents=None, store=None, checkpointer
         skills=["/skills/"],
         checkpointer=checkpointer,
     )
+    return _cap_recursion(graph)
 
 
 graph = build_deep_agent(model=model, backend=create_backend(root=WORKSPACE_ROOT))
