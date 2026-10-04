@@ -29,6 +29,9 @@ import TodoDock from "./components/todo/TodoDock";
 import { ApprovalDock } from "./components/approval/ApprovalDock";
 import MessageList from "./components/chat/MessageList";
 import ActivityCard from "./components/chat/ActivityCard";
+import { useMessageTimestamps } from "./lib/timestamps";
+import { deriveTrajectory } from "./trajectory/layout";
+import { TrajectoryView } from "./trajectory/TrajectoryView";
 
 function AgentWorkspace(): ReactNode {
   const stream = useAgentStream();
@@ -42,6 +45,8 @@ function AgentWorkspace(): ReactNode {
   const [activeSubagentTask, setActiveSubagentTask] = useState<string | null>(null);
 
   const tasks: AsyncTaskView[] = useMemo(() => readAsyncTasks(stream.values), [stream.values]);
+  // 客户端时间戳捕获（spec §5.3）：仅实时流有；历史回放 → Timeline 时间模式禁用。
+  const msgTimestamps = useMessageTimestamps(stream.messages);
   useAutoOpenRunningTask(
     tasks,
     useCallback(
@@ -81,7 +86,13 @@ function AgentWorkspace(): ReactNode {
       {
         id: "trajectory",
         title: "Trajectory",
-        render: () => <p className="panel-host__empty">Trajectory arrives in phase 2</p>,
+        render: () => (
+          <TrajectoryView
+            turns={deriveTrajectory(stream.messages)}
+            timestamps={msgTimestamps}
+            messages={stream.messages}
+          />
+        ),
       },
       {
         id: "workbench",
@@ -105,6 +116,8 @@ function AgentWorkspace(): ReactNode {
       stream.approvalError,
       stream.todos,
       stream.submitApproval,
+      stream.messages,
+      msgTimestamps,
     ],
   );
 

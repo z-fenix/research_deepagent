@@ -136,6 +136,7 @@ export function Ledger(props: { turns: TrajTurn[]; searchMatches?: ReadonlySet<s
                 key={row.key}
                 data-virtual-index={item.index}
                 data-match={matched || undefined}
+                data-asst-key={row.kind === "assistant" && row.step !== null ? assistantKey(row.turn, row.step) : undefined}
                 className={`ledger__row ledger__row--${row.kind}`}
                 style={style}
               >

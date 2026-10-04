@@ -108,6 +108,8 @@ export type AgentStream = {
   todos: TodoItem[];
   /** 原始 stream.values（供 readAsyncTasks 读取 async_tasks 等扩展键）。 */
   values: StreamState;
+  /** 原始消息数组（Trajectory 面板派生 + 客户端时间戳捕获）。 */
+  messages: Message[];
   isLoading: boolean;
   error: unknown;
   pendingApproval: PendingApproval | null;
@@ -168,6 +170,7 @@ export function useAgentStream(): AgentStream {
     rows,
     todos,
     values: stream.values,
+    messages: stream.messages as Message[],
     isLoading: stream.isLoading,
     error: stream.error,
     pendingApproval,
