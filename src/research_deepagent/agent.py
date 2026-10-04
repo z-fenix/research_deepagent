@@ -245,7 +245,7 @@ def _memory_routes() -> dict[str, StoreBackend]:
 MEMORY_SOURCES = ["/memories/agent/AGENTS.md", "/memories/user/preferences.md"]
 
 
-def build_deep_agent(model, *, backend, subagents=None, store=None):
+def build_deep_agent(model, *, backend, subagents=None, store=None, checkpointer=None):
     """Assemble the orchestrator graph; injectable model/backend for tests.
 
     TodoListMiddleware provides write_todos + todos state for planning;
@@ -262,6 +262,11 @@ def build_deep_agent(model, *, backend, subagents=None, store=None):
     skipped). `store` is the LangGraph BaseStore backing those namespaces.
     `context_schema=PipelineContext` lets callers scope per-user via
     `graph.invoke(..., context=PipelineContext(user_id=...))`.
+
+    `checkpointer` is a test-only passthrough to `create_deep_agent` (default
+    None: production leaves checkpointing to the platform, which injects its
+    own). Empirically required for HITL resume — `Command(resume=...)` raises
+    "Cannot use Command(resume=...) without checkpointer" on a bare graph.
     """
     return create_deep_agent(
         model=model,
@@ -275,6 +280,7 @@ def build_deep_agent(model, *, backend, subagents=None, store=None):
         interrupt_on=_build_interrupt_on(),
         middleware=[TodoListMiddleware()],
         skills=["/skills/"],
+        checkpointer=checkpointer,
     )
 
 

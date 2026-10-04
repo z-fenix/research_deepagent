@@ -10,12 +10,19 @@ import itertools
 
 import pytest
 from langchain_core.messages import AIMessage
+from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.store.memory import InMemoryStore
+from langgraph.types import Command
 
 from tests.test_subagent_delegation import _FakeToolChatModel
 
 
-def _gate_call_model(provider: str) -> _FakeToolChatModel:
+def _gate_then_final_model(provider: str, final_content: str) -> _FakeToolChatModel:
+    """回合 1: 门禁工具调用 → (中断) → 回合 2: 恢复后最终回答。
+
+    同一模型实例跨两次 invoke 使用：中断前消费 gate_call，恢复后消费
+    final（后续 repeat 兜底，防止意外多轮）。
+    """
     gate_call = AIMessage(
         content="PRD 已完成，请求门禁审批。",
         tool_calls=[{
@@ -25,11 +32,15 @@ def _gate_call_model(provider: str) -> _FakeToolChatModel:
             "type": "tool_call",
         }],
     )
-    final = AIMessage(content="等待门禁结果。")
+    final = AIMessage(content=final_content)
     return _FakeToolChatModel(
         provider=provider,
         messages=iter(itertools.chain([gate_call], itertools.repeat(final))),
     )
+
+
+def _gate_thread_config() -> dict:
+    return {"configurable": {"thread_id": "gate-resume-test"}}
 
 
 @pytest.fixture()
@@ -42,17 +53,24 @@ def hitl_graph(monkeypatch, tmp_path):
 
     importlib.reload(agent_module)
     graph = agent_module.build_deep_agent(
-        model=_gate_call_model(agent_module.MODEL_PROVIDER),
+        model=_gate_then_final_model(agent_module.MODEL_PROVIDER, "门禁已通过，推进 BDD 阶段。"),
         backend=agent_module.create_backend(root=tmp_path / "workspace"),
         # 双层记忆路由需要 BaseStore（生产由平台注入，测试显式传入空 store）
         store=InMemoryStore(),
+        # 恢复路径需要 checkpointer（实证：无 checkpointer 时 Command(resume=...)
+        # 抛 "Cannot use Command(resume=...) without checkpointer"；生产路径
+        # 由平台注入，此处为测试显式注入 InMemorySaver）
+        checkpointer=InMemorySaver(),
     )
     return agent_module, graph
 
 
 def test_gate_tool_triggers_interrupt(hitl_graph):
     _, graph = hitl_graph
-    result = graph.invoke({"messages": [{"role": "user", "content": "开始 PRD 阶段"}]})
+    result = graph.invoke(
+        {"messages": [{"role": "user", "content": "开始 PRD 阶段"}]},
+        _gate_thread_config(),
+    )
     # 形态实证：result["__interrupt__"] 为 Interrupt list，value 是 dict
     assert "__interrupt__" in result
     interrupts = result["__interrupt__"]
@@ -113,3 +131,60 @@ def test_degraded_mode_without_pencli(monkeypatch, tmp_path):
     importlib.reload(agent_module)
     agent_module.pencli_tools = []
     assert not [k for k in agent_module._build_interrupt_on() if k.startswith("pencli")]
+
+
+def test_gate_resume_with_approve(hitl_graph):
+    _, graph = hitl_graph
+    config = _gate_thread_config()
+    first = graph.invoke(
+        {"messages": [{"role": "user", "content": "开始 PRD 阶段"}]},
+        config,
+    )
+    assert "__interrupt__" in first, "前置条件：门禁工具调用应产生中断"
+
+    resumed = graph.invoke(
+        Command(resume={"decisions": [{"type": "respond", "message": "同意，继续"}]}),
+        config,
+    )
+    # 1) 人工批复原文无损回传：request_phase_approval 的 ToolMessage 内容
+    #    == respond 消息原文（恢复接线只搬运文本，同意/revise 的语义解析
+    #    是编排者模型的事，见 orchestrator prompt）
+    tool_messages = [
+        msg for msg in resumed["messages"]
+        if getattr(msg, "type", None) == "tool"
+        and getattr(msg, "name", "") == "request_phase_approval"
+    ]
+    assert len(tool_messages) == 1
+    assert tool_messages[0].content == "同意，继续"
+    # 2) 图正常结束：恢复后消费回合 2 的最终 AIMessage，且不再有待决中断
+    assert any(
+        isinstance(msg, AIMessage) and msg.content == "门禁已通过，推进 BDD 阶段。"
+        for msg in resumed["messages"]
+    )
+    assert "__interrupt__" not in resumed
+
+
+def test_gate_resume_with_revision(hitl_graph):
+    _, graph = hitl_graph
+    config = _gate_thread_config()
+    first = graph.invoke(
+        {"messages": [{"role": "user", "content": "开始 PRD 阶段"}]},
+        config,
+    )
+    assert "__interrupt__" in first, "前置条件：门禁工具调用应产生中断"
+
+    revision = "把 REQ-003 的优先级改成 P1"
+    resumed = graph.invoke(
+        Command(resume={"decisions": [{"type": "respond", "message": revision}]}),
+        config,
+    )
+    # 意见原文逐字回传（接线层只验证无损；不因消息不含"同意"二字而走
+    # approved 路径——解析为 revise 属模型行为）
+    tool_messages = [
+        msg for msg in resumed["messages"]
+        if getattr(msg, "type", None) == "tool"
+        and getattr(msg, "name", "") == "request_phase_approval"
+    ]
+    assert len(tool_messages) == 1
+    assert tool_messages[0].content == revision
+    assert "__interrupt__" not in resumed
