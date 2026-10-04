@@ -11,6 +11,7 @@ import itertools
 import pytest
 from langchain_core.language_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage
+from langgraph.store.memory import InMemoryStore
 
 from research_deepagent.prompts import ORCHESTRATOR_INSTRUCTIONS
 
@@ -63,6 +64,8 @@ def built_graph(monkeypatch, tmp_path):
     graph = agent_module.build_deep_agent(
         model=_make_fake_model(),
         backend=agent_module.create_backend(root=tmp_path / "workspace"),
+        # 双层记忆路由需要 BaseStore（生产由平台注入，测试显式传入空 store）
+        store=InMemoryStore(),
     )
     return agent_module, graph
 

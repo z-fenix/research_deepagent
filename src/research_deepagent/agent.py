@@ -15,6 +15,8 @@ from datetime import datetime  # noqa: F401 - kept per SDD brief head
 from pathlib import Path
 
 from deepagents import AsyncSubAgent, create_deep_agent
+from deepagents.backends import CompositeBackend, StoreBackend
+from deepagents.backends.utils import create_file_data  # noqa: F401 - re-exported for tests
 from deepagents.profiles import (
     GeneralPurposeSubagentProfile,
     HarnessProfile,
@@ -24,6 +26,11 @@ from dotenv import load_dotenv
 from langchain.agents.middleware import TodoListMiddleware
 from langchain.chat_models import init_chat_model
 
+from research_deepagent.context import (
+    PipelineContext,
+    resolve_assistant_id,
+    resolve_user_id,
+)
 from research_deepagent.prompts import (
     BDD_AGENT_INSTRUCTIONS,
     ORCHESTRATOR_INSTRUCTIONS,
@@ -199,7 +206,28 @@ sdd_async_agent = AsyncSubAgent(
 )
 
 
-def build_deep_agent(model, *, backend, subagents=None):
+def _memory_routes() -> dict[str, StoreBackend]:
+    """Dual-scope memory routes over the orchestrator's default backend.
+
+    CompositeBackend strips the matched `/memories/<scope>/` prefix, so
+    StoreBackend sees keys relative to the scope (e.g. `/preferences.md`).
+    Namespace factories resolve identity from the invocation runtime
+    (server_info first, context_schema fallback) via research_deepagent.context.
+    """
+    return {
+        "/memories/agent/": StoreBackend(
+            namespace=lambda rt: (resolve_assistant_id(rt), "memories"),
+        ),
+        "/memories/user/": StoreBackend(
+            namespace=lambda rt: (resolve_user_id(rt), "memories"),
+        ),
+    }
+
+
+MEMORY_SOURCES = ["/memories/agent/AGENTS.md", "/memories/user/preferences.md"]
+
+
+def build_deep_agent(model, *, backend, subagents=None, store=None):
     """Assemble the orchestrator graph; injectable model/backend for tests.
 
     TodoListMiddleware provides write_todos + todos state for planning;
@@ -208,13 +236,24 @@ def build_deep_agent(model, *, backend, subagents=None):
     skills=["/skills/"] mounts the workspace skills directory (content lands
     in Task 3); a missing directory only logs a warning (verified empirically
     against deepagents 0.7.13).
+
+    Long-term memory: `backend` is wrapped in a CompositeBackend routing
+    `/memories/agent/` (assistant-scoped, shared across users) and
+    `/memories/user/` (user_id-scoped) to a StoreBackend; MemoryMiddleware
+    loads MEMORY_SOURCES into the system prompt each run (missing files are
+    skipped). `store` is the LangGraph BaseStore backing those namespaces.
+    `context_schema=PipelineContext` lets callers scope per-user via
+    `graph.invoke(..., context=PipelineContext(user_id=...))`.
     """
     return create_deep_agent(
         model=model,
         tools=[],
         system_prompt=ORCHESTRATOR_INSTRUCTIONS,
         subagents=subagents if subagents is not None else [prd_agent, bdd_agent, sdd_async_agent],
-        backend=backend,
+        backend=CompositeBackend(default=backend, routes=_memory_routes()),
+        context_schema=PipelineContext,
+        store=store,
+        memory=MEMORY_SOURCES,
         middleware=[TodoListMiddleware()],
         skills=["/skills/"],
     )

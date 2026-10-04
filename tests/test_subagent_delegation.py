@@ -15,6 +15,7 @@ import itertools
 import pytest
 from langchain_core.language_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage, ToolMessage
+from langgraph.store.memory import InMemoryStore
 
 from research_deepagent.prompts import (
     BDD_AGENT_INSTRUCTIONS,
@@ -92,6 +93,9 @@ def built_graph(built_agent_module):
     graph = agent_module.build_deep_agent(
         model=_make_fake_model(agent_module.MODEL_PROVIDER),
         backend=agent_module.create_backend(root=workspace),
+        # 双层记忆路由需要 BaseStore（生产由平台注入，测试显式传入空 store，
+        # 记忆文件缺失时被 MemoryMiddleware 跳过）
+        store=InMemoryStore(),
     )
     return agent_module, graph
 
@@ -175,6 +179,7 @@ def test_task_toolmessage_carries_parseable_phase_report(built_agent_module):
     graph = agent_module.build_deep_agent(
         model=model,
         backend=agent_module.create_backend(root=workspace),
+        store=InMemoryStore(),
     )
 
     result = graph.invoke(
@@ -268,7 +273,9 @@ def test_subagent_intermediate_tool_calls_stay_out_of_orchestrator_context(
         ),
     )
     backend = agent_module.create_backend(root=workspace)
-    graph = agent_module.build_deep_agent(model=model, backend=backend)
+    graph = agent_module.build_deep_agent(
+        model=model, backend=backend, store=InMemoryStore()
+    )
 
     result = graph.invoke(
         {"messages": [{"role": "user", "content": "新需求，slug=demo"}]}

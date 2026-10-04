@@ -27,6 +27,7 @@ from pathlib import Path
 import pytest
 import yaml
 from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
+from langgraph.store.memory import InMemoryStore
 
 from tests.test_subagent_delegation import (
     _FakeToolChatModel,
@@ -107,6 +108,7 @@ def test_level1_skill_metadata_injected_into_system_message(seeded_agent_module)
     graph = agent_module.build_deep_agent(
         model=model,
         backend=agent_module.create_backend(root=workspace),
+        store=InMemoryStore(),
     )
     graph.invoke(
         {"messages": [{"role": "user", "content": "新需求，slug=demo"}]},
@@ -134,6 +136,7 @@ def test_level1_directory_without_skill_md_not_injected(seeded_agent_module):
     graph = agent_module.build_deep_agent(
         model=model,
         backend=agent_module.create_backend(root=workspace),
+        store=InMemoryStore(),
     )
     graph.invoke(
         {"messages": [{"role": "user", "content": "新需求，slug=demo"}]},
@@ -170,6 +173,7 @@ def test_level2_on_demand_read_of_skill_body(seeded_agent_module):
     graph = agent_module.build_deep_agent(
         model=model,
         backend=agent_module.create_backend(root=workspace),
+        store=InMemoryStore(),
     )
     result = graph.invoke(
         {"messages": [{"role": "user", "content": "新需求，slug=demo"}]},
