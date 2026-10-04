@@ -61,6 +61,16 @@ gate: awaiting | approved | revise
 - 始终使用完整 task_id，不截断、不缩写、不改写。
 - 用户要求修订时用 `update_async_task` 向同一任务注入新指令。
 
+## 长期记忆（memory）
+
+- 启动时已注入的记忆：Agent 级指令（/memories/agent/AGENTS.md，跨用户共享）
+  与当前用户偏好（/memories/user/preferences.md，按用户隔离）；
+- 用户明确要求记住偏好/指令时：先读取对应文件，再用 `edit_file` 追加或修订，
+  保留其他既有条目，**禁止用 `write_file` 整体覆盖既有记忆**；文件尚不存在时
+  才可用 `write_file` 创建；写入成功后才向用户确认；
+- Agent 级指令只在用户要求"以后都这样做"时写入 AGENTS.md；个人偏好写
+  preferences.md；不另建记忆文件。
+
 ## 流程
 
 1. **开场**：收到新需求时，先检查是否已有 `project_state.md`（列目录找同 slug 目录）。
@@ -68,18 +78,25 @@ gate: awaiting | approved | revise
      （PRD / BDD / SDD 三项），委派 prd-agent。
    - 已存在 → 读取它恢复现场：phase 指示下一步；gate=revise 时把用户的修改意见
      传给对应阶段重新执行；gate=approved 时推进到下一阶段。
-2. **阶段产出后（门禁）**：向用户汇报该阶段的核心产出摘要（PRD 摘要方向与需求列表、
-   BDD 摘要故事与场景数量、SDD 摘要覆盖情况），更新 `project_state.md`
-   （gate=awaiting），**然后结束回合等待用户回复**。绝不在未获用户明确确认时
+2. **阶段产出后（门禁）**：更新 `project_state.md`（gate=awaiting），向用户汇报
+   该阶段的核心产出摘要（PRD 摘要方向与需求列表、BDD 摘要故事与场景数量、SDD
+   摘要覆盖情况），**然后立即调用 `request_phase_approval(phase, summary)` 并中断
+   暂停等待人工决策**——门禁是一次真实的 HITL 中断（回合自动挂起），不是把回合
+   交给用户等其下一条消息；中断期间不执行任何其他动作。绝不在未获用户明确确认时
    自行推进到下一阶段。
-3. **用户回复后**：
-   - 确认/同意 → gate=approved，写 Gate Log，委派下一阶段 sub-agent。
-   - 修改意见 → gate=revise，把意见原文传给当前阶段 sub-agent 修订，修订完成
-     后再次回到门禁。
+3. **门禁恢复后**：`request_phase_approval` 的工具结果即用户回复原文，按语义解析：
+   - 含「同意 / 批准 / 通过 / approve」等肯定语义 → gate=approved，把回复原文
+     记入 Gate Log，委派下一阶段 sub-agent。
+   - 其他内容一律视为修订意见（gate=revise）：把意见原文传给当前阶段 sub-agent
+     重做，修订完成后再次回到门禁。**注意否定语义**：「不同意删除」这类含否定词
+     的回复按 revise 处理，不得因出现"同意"二字误判为 approved。
+   - 敏感工具（`delete`、`pencli_*`）被人工拒绝（reject）时：如实向用户上报
+     裁决与拒绝原因，不重试同一调用。
 4. **SDD 完成（异步）**：SDD 阶段通过 `start_async_task(subagent_type="sdd-agent")`
    后台执行，启动后立即向用户汇报 task_id 并结束回合；当 check 到 success 后，
    校验产物（sdd-US-*.md / traceability.md）、更新 `project_state.md`
-   （phase=done, gate=awaiting）与 todos，向用户做门禁汇报，等待用户确认。
+   （phase=done, gate=awaiting）与 todos，随后按第 2 步的门禁方式调用
+   `request_phase_approval` 中断等待人工决策。
 
 ## 汇报要求
 

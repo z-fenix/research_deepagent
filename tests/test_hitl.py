@@ -80,6 +80,28 @@ def test_interrupt_on_includes_sensitive_tools(hitl_graph):
         assert cfg[tool.name] == {"allowed_decisions": ["approve", "reject"]}
 
 
+def test_orchestrator_prompt_declares_gate_flow():
+    from research_deepagent.prompts import ORCHESTRATOR_INSTRUCTIONS as P
+    # 门禁中断：汇报后调用门禁工具并暂停，不再"结束回合等待"
+    assert "request_phase_approval" in P
+    assert "结束回合等待" not in P.split("## 流程")[1].split("## 汇报要求")[0]
+    # 解析规则：同意关键词 → approved；其余 → revise 带原文
+    gate_section = P.split("## 流程")[1]
+    assert "同意" in gate_section and "revise" in gate_section
+    assert "意见原文" in gate_section
+    # Review Focus 2：否定语义示例必须按 revise 解析
+    assert "不同意删除" in gate_section
+    # 拒绝反馈：敏感工具被拒时如实上报不重试
+    assert "重试" in gate_section or "重试" in P
+
+
+def test_orchestrator_prompt_declares_memory_conventions():
+    from research_deepagent.prompts import ORCHESTRATOR_INSTRUCTIONS as P
+    assert "## 长期记忆（memory）" in P
+    assert "/memories/agent/AGENTS.md" in P and "/memories/user/preferences.md" in P
+    assert "edit_file" in P and "保留" in P  # 禁止 write_file 整体覆盖既有记忆
+
+
 def test_degraded_mode_without_pencli(monkeypatch, tmp_path):
     # pencli_tools 为空（MCP 不可用）时不报错、不含 pencli 条目
     monkeypatch.setenv("DOCS_WORKSPACE_DIR", str(tmp_path / "workspace"))
