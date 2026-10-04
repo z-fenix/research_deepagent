@@ -140,7 +140,7 @@ namespace 工厂在 StoreBackend 内部拿到运行时后调用上述函数，�
 
 ## 6. 测试
 
-### 6.1 `tests/test_context.py`（4 条）
+### 6.1 `tests/test_context.py`（8 条）
 
 | 用例 | 验证点 |
 |---|---|
@@ -164,8 +164,8 @@ namespace 工厂在 StoreBackend 内部拿到运行时后调用上述函数，�
 ### 6.3 运行
 
 ```bash
-uv run pytest tests/test_context.py tests/test_memory.py -q   # 单独运行（7 passed）
-uv run pytest tests/ -q                                       # 全量（215 passed, 1 warning）
+uv run pytest tests/test_context.py tests/test_memory.py -q   # 单独运行（11 passed）
+uv run pytest tests/ -q                                       # 全量（219 passed, 1 warning）
 ```
 
 唯一 warning 是基线内已知的 `google/genai` DeprecationWarning，与本能力无关。
