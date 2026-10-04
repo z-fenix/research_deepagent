@@ -83,7 +83,7 @@ CompositeBackend
 | 函数 | 解析顺序 | 兜底 |
 |---|---|---|
 | `resolve_user_id(rt)`（context.py:17） | `rt.server_info.user.identity` → `rt.context.user_id` | `"local-user"` |
-| `resolve_assistant_id(rt)`（context.py:26） | `rt.server_info.assistant_id` | `ASSISTANT_ID_FALLBACK = "research"`（context.py:9，即 langgraph.json 的 graph 键名） |
+| `resolve_assistant_id(rt)`（context.py:30） | `rt.server_info.assistant_id` | `ASSISTANT_ID_FALLBACK = "research"`（context.py:9，即 langgraph.json 的 graph 键名） |
 
 调用侧：`build_deep_agent` 给 `create_deep_agent` 传
 `context_schema=PipelineContext`（agent.py:277），调用方用
@@ -119,8 +119,12 @@ namespace 工厂在 StoreBackend 内部拿到运行时后调用上述函数，�
 
 ## 5. 运行时与部署
 
-- **本地开发**：`uv run langgraph dev` / `agentseek-api dev` 由平台注入
-  store，记忆跨 thread 持久化；单测用
+- **本地开发（store 注入：验证待定，部署门禁）**：`uv run langgraph dev` /
+  `agentseek` 运行时**预期**由平台注入 store，记忆方可跨 thread 持久化；
+  该假设尚未实证——若运行时未注入 store，`get_store()` 返回 None，
+  `MemoryMiddleware` 会在每次运行时抛错。**部署门禁**：部署前在真实运行时
+  （`langgraph dev` / agentseek）跑 `scripts/async_smoke.py`（步骤 a + e，
+  见脚本 docstring）实证；若未注入，先在部署配置中配置 store。单测用
   `build_deep_agent(store=InMemoryStore())` 显式传入（`InMemoryStore` 需要
   `store.put` 预置，格式 `create_file_data(content)`，见
   `tests/test_memory.py` 的 `_seeded_store`）。

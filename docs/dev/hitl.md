@@ -124,7 +124,7 @@ docstring 与 `test_gate_tool_triggers_interrupt`。）
 |---|---|
 | 「同意」文本解析误判（方案 A 的已知代价） | 解析由模型按提示词关键词执行，接线层只保证原文无损回传（`test_gate_resume_with_approve` / `test_gate_resume_with_revision` 断言 ToolMessage == 原文）。缓解：提示词列举关键词 + 否定语义示例、Gate Log 留原文可审计；升级路径见 §8 方案 B |
 | 中断期间用户绕过审批发消息 | 前端 composer 禁用（App.tsx）；**服务端无强约束**（LangGraph 行为：新消息会排队/开启新 run），跨端接入时需自行加守卫 |
-| agentseek run 通道拒绝 `Command` 输入 | 源码层面成立：langgraph_sdk 0.4.4 把 `command`（含 `{"resume": ...}`）原样放进 run 提交负载（`langgraph_sdk/_async/runs.py`）；**真实往返以 `scripts/async_smoke.py` 步骤 e 的运行结果为准**（PASS = 通道可用，脚本 docstring 记录了验证状态） |
+| agentseek run 通道拒绝 `Command` 输入 | 源码层面成立：langgraph_sdk 0.4.4 把 `command`（含 `{"resume": ...}`）原样放进 run 提交负载（`langgraph_sdk/_async/runs.py`）；**真实往返以 `scripts/async_smoke.py` 步骤 e 的运行结果为准**（PASS = 通道可用，脚本 docstring 记录了验证状态）。同属部署门禁：平台 store 注入（记忆层依赖）亦为验证待定，部署前以 `scripts/async_smoke.py` 步骤 a + e 一并实证，详见 memory.md §5 |
 
 ## 8. 扩展指南（方案 B 升级路径）
 
