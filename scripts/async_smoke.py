@@ -1,9 +1,9 @@
-"""手动冒烟脚本：验证 SDD 异步链路（Task 06 / Task 4）。
+"""手动冒烟脚本：验证 SDD 异步链路（Task 06 / Task 4）与门禁往返（Task 07）。
 
 对照《Deep Agents》第 6 章最小验证方案的 run_demo.py 模式改写为本仓库形态：
 对 langgraph dev 启动的本地服务，向 assistant_id="research" 的 thread 连续
-执行四步交互，验证 start_async_task / check_async_task / update_async_task
-异步链路与 SddPhaseReport 回收解析。
+执行五步交互，验证 start_async_task / check_async_task / update_async_task
+异步链路、SddPhaseReport 回收解析，以及 HITL 门禁往返（中断 → respond 恢复）。
 
 前置条件：
 - 仓库根目录存在可用的 `.env`（langgraph.json 已声明 `"env": "./.env"`）；
@@ -11,10 +11,20 @@
   （默认监听 http://127.0.0.1:2024）；
 - 本脚本仅做人工验证，不进 CI，也不属于 pytest 套件。
 
+agentseek 对 Command(resume=...) 的支持结论（Task 07 spec §10 风险项）：
+- **源码层面成立**：langgraph_sdk 0.4.4 的 `runs.wait` / `runs.create` 把
+  `command` 字典原样放进 run 提交负载（`langgraph_sdk/_async/runs.py` 的
+  payload 组装，`"command": {...}`），LangGraph 服务端协议原生接受
+  `{"resume": ...}` 形态——即提交通道不会在协议层拒绝 Command 输入；
+- **真实往返未实证**：agentseek / langgraph dev 托管路径下「中断挂起 →
+  Command(resume) 恢复 → run 完成」的端到端行为，以本脚本步骤 e 的实际
+  运行结果为准（PASS = 通道可用；报错/仍中断 = 该通道拒绝或形态不符）。
+
 用法：
     uv run python scripts/async_smoke.py
     uv run python scripts/async_smoke.py --url http://127.0.0.1:2024 \
         --poll-interval 30 --poll-timeout 900
+    uv run python scripts/async_smoke.py --skip-gate   # 只跑异步链路
 """
 
 from __future__ import annotations
@@ -57,6 +67,16 @@ STEP_D_POLL_PROMPT = (
     "请检查该异步任务是否已完成；如果已完成，请把 sdd-agent 回收的 "
     "SddPhaseReport 结果 JSON 原样输出；如果未完成，请只回答“未完成”。"
 )
+
+STEP_E_GATE_PROMPT = (
+    "请为示例需求“用户登录功能”完成 PRD 阶段：委派 prd-agent 产出后向我汇报"
+    "阶段摘要，并调用门禁工具请求人工审批，然后停下等待人工决策，"
+    "不要自行推进到下一阶段。"
+)
+
+# 门禁恢复决策：respond 即门禁回复，原文会成为 request_phase_approval 的
+# 工具结果，由编排者按提示词解析 approved / revise。
+GATE_APPROVE_DECISION = {"type": "respond", "message": "同意，继续下一阶段"}
 
 
 def last_reply_text(state: dict) -> str:
@@ -111,6 +131,21 @@ def try_parse_sdd_report(text: str) -> SddPhaseReport | None:
     return None
 
 
+def extract_interrupt_value(state: dict) -> dict | None:
+    """从 runs.wait 返回的最终 state 中提取 HITL 中断 value（无中断返回 None）。
+
+    中断在服务端 state 中以 `__interrupt__` 键呈现：值为列表，每个元素含
+    `value`（即 deepagents HumanInTheLoopMiddleware 的
+    {action_requests, review_configs}）。
+    """
+    interrupts = state.get("__interrupt__") if isinstance(state, dict) else None
+    if not interrupts:
+        return None
+    first = interrupts[0]
+    value = first.get("value") if isinstance(first, dict) else getattr(first, "value", None)
+    return value if isinstance(value, dict) else None
+
+
 async def send_and_wait(client, thread_id: str, assistant_id: str, prompt: str) -> tuple[str, float]:
     """发送一条消息并等待本轮返回，返回（回复文本, 耗时秒）。"""
     start = time.monotonic()
@@ -129,6 +164,7 @@ async def main() -> None:
     parser.add_argument("--assistant-id", default=DEFAULT_ASSISTANT_ID)
     parser.add_argument("--poll-interval", type=float, default=DEFAULT_POLL_INTERVAL_SECONDS)
     parser.add_argument("--poll-timeout", type=float, default=DEFAULT_POLL_TIMEOUT_SECONDS)
+    parser.add_argument("--skip-gate", action="store_true", help="跳过门禁往返段（步骤 e）")
     args = parser.parse_args()
 
     client = langgraph_sdk.get_client(url=args.url)
@@ -176,9 +212,63 @@ async def main() -> None:
 
     if report is None:
         print(f"[smoke] WARN：轮询超时（{args.poll_timeout:.0f}s）未解析到 SddPhaseReport，请人工检查 thread {thread_id}")
+    else:
+        print("===== SddPhaseReport 解析成功 =====")
+        print(report.model_dump_json(indent=2))
+
+    if args.skip_gate:
+        print("\n[smoke] 跳过门禁往返段（--skip-gate）")
         return
-    print("===== SddPhaseReport 解析成功 =====")
-    print(report.model_dump_json(indent=2))
+
+    # ---- e. 门禁往返：HITL 中断 → Command(resume) 恢复 ----
+    # 用独立 thread 保证本段的前置状态可控（不依赖 a-d 的现场）。
+    print("\n===== 步骤 e：门禁往返（中断 → respond 恢复）=====")
+    gate_thread = await client.threads.create()
+    gate_thread_id = gate_thread["thread_id"]
+    print(f"[smoke] gate thread_id={gate_thread_id}")
+
+    gate_state = await client.runs.wait(
+        gate_thread_id,
+        args.assistant_id,
+        input={"messages": [{"role": "user", "content": STEP_E_GATE_PROMPT}]},
+    )
+    interrupt_value = extract_interrupt_value(gate_state)
+    if interrupt_value is None:
+        raise SystemExit(
+            "[smoke] FAIL：PRD 阶段未产生 HITL 中断——检查 agent.py 的 "
+            "interrupt_on 是否仍含 request_phase_approval（respond-only），"
+            "或模型未调用门禁工具"
+        )
+    action_requests = (
+        interrupt_value.get("actionRequests")
+        or interrupt_value.get("action_requests")
+        or []
+    )
+    review_configs = (
+        interrupt_value.get("reviewConfigs")
+        or interrupt_value.get("review_configs")
+        or []
+    )
+    if not action_requests:
+        raise SystemExit(f"[smoke] FAIL：中断 value 中未找到 action_requests：{interrupt_value}")
+    print("[smoke] 中断 action_requests：")
+    print(json.dumps(action_requests, ensure_ascii=False, indent=2))
+    print("[smoke] 中断 review_configs：")
+    print(json.dumps(review_configs, ensure_ascii=False, indent=2))
+
+    # 决策数组与 action_requests 顺序一一对应（本段恰好一条门禁请求）。
+    resumed_state = await client.runs.wait(
+        gate_thread_id,
+        args.assistant_id,
+        command={"resume": {"decisions": [GATE_APPROVE_DECISION]}},
+    )
+    if extract_interrupt_value(resumed_state) is not None:
+        raise SystemExit("[smoke] FAIL：恢复后仍处于中断——decisions 负载形态或通道不被接受")
+    reply_e = last_reply_text(resumed_state)
+    print(f"[assistant] {reply_e}\n")
+    if not reply_e.strip():
+        raise SystemExit("[smoke] FAIL：恢复后无最终回复，run 可能未完成")
+    print("[smoke] PASS：门禁中断 → Command(resume) 恢复 → run 完成（提交通道接受 Command）")
 
 
 if __name__ == "__main__":
