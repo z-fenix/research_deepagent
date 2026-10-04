@@ -9,7 +9,8 @@
   中央才让位；侧栏不让位。
 - `layout/useFrameLayout.ts`：视口 ResizeObserver 测量 + localStorage 持久化
   （键 `harness.sidebar`/`harness.rightbar`，清除键 = 恢复默认）；窄视口
-  (<1024) 自动收 56px 图标栏，可手动展开。
+  (<1024) 自动收 56px 图标栏，可手动展开（drawer 断点与 AUTO_COLLAPSE 对齐：
+  <1024 时 ☰ 打开浮层侧栏，中间档不会出现"挤压且无入口"）。
 - `layout/AppFrame.tsx`：grid 三列 + DragHandle（pointer capture + rAF，
   拖拽基线 = 按下时刻渲染宽度，防 clamp 回跳）。
 

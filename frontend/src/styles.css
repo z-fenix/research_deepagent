@@ -572,7 +572,9 @@ body { margin: 0; }
 }
 .dialog__stepper button:disabled { opacity: 0.4; cursor: not-allowed; }
 
-@media (max-width: 768px) {
+/* 断点与 SIDEBAR_AUTO_COLLAPSE（1024）对齐：769-1023 区间侧栏收成 56px
+   图标栏时仍走 drawer 语义（☰ 打开浮层），避免中间档被挤压且无入口。 */
+@media (max-width: 1023px) {
   .shell__menu { display: block; }
   .shell__backdrop { display: block; }
   .sidebar {
