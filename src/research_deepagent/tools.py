@@ -93,6 +93,17 @@ def tavily_search(
     )
 
 
+@tool
+def request_phase_approval(phase: str, summary: str) -> str:
+    """请求人工门禁审批；本工具无副作用，真实结果由 HITL 的 respond 决策提供。
+
+    Args:
+        phase: 请求审批的阶段标识（如 prd / bdd / sdd）。
+        summary: 提交给人工审批的阶段产出摘要。
+    """
+    return f"[门禁待决] {phase}: {summary}"
+
+
 @tool(parse_docstring=True)
 def think_tool(reflection: str) -> str:
     """Tool for strategic reflection on research progress and decision-making.

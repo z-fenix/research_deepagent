@@ -177,7 +177,10 @@ def test_level2_on_demand_read_of_skill_body(seeded_agent_module):
     )
     result = graph.invoke(
         {"messages": [{"role": "user", "content": "新需求，slug=demo"}]},
-        config={"recursion_limit": 10},
+        # HITL 接线（interrupt_on 非空）后 HumanInTheLoopMiddleware.after_model
+        # 每个模型回合多占一个 superstep（.venv 实证：两回合 10 步 → 12 步），
+        # 原 10 的预算恰好耗尽；放宽到 20，仅是 fixture 安全帽，断言不变。
+        config={"recursion_limit": 20},
     )
 
     read_messages = [

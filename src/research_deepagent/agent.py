@@ -40,7 +40,7 @@ from research_deepagent.schemas import (
     BddPhaseReport,
     PrdPhaseReport,
 )
-from research_deepagent.tools import tavily_search
+from research_deepagent.tools import request_phase_approval, tavily_search
 from research_deepagent.validators.lc_tools import (
     validate_user_stories,
 )
@@ -168,6 +168,24 @@ if pencli_tools:
 else:
     print("[agent] running without pencli MCP tools (degraded)")
 
+# 门禁工具：HITL respond-only 中断（真实结果由人工 respond 决策提供）。
+# Task 4 的提示词契约引用此常量。
+GATE_TOOL = "request_phase_approval"
+
+
+def _build_interrupt_on() -> dict:
+    """中断配置：门禁工具 respond-only；pencli 敏感工具与 delete 需人工 approve/reject。
+
+    pencli 工具名构建时从 pencli_tools 动态取（MCP 不可用即降级模式下该段为空）。
+    """
+    cfg = {
+        GATE_TOOL: {"allowed_decisions": ["respond"]},
+        "delete": {"allowed_decisions": ["approve", "reject"]},
+    }
+    for tool in pencli_tools:
+        cfg[tool.name] = {"allowed_decisions": ["approve", "reject"]}
+    return cfg
+
 prd_agent = {
     "name": "prd-agent",
     "description": (
@@ -247,13 +265,14 @@ def build_deep_agent(model, *, backend, subagents=None, store=None):
     """
     return create_deep_agent(
         model=model,
-        tools=[],
+        tools=[request_phase_approval],
         system_prompt=ORCHESTRATOR_INSTRUCTIONS,
         subagents=subagents if subagents is not None else [prd_agent, bdd_agent, sdd_async_agent],
         backend=CompositeBackend(default=backend, routes=_memory_routes()),
         context_schema=PipelineContext,
         store=store,
         memory=MEMORY_SOURCES,
+        interrupt_on=_build_interrupt_on(),
         middleware=[TodoListMiddleware()],
         skills=["/skills/"],
     )
