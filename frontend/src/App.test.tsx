@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import { RIGHTBAR_DEFAULT_RATIO } from "./layout/useFrameLayout";
 
 const streamState: {
   values: { todos?: Array<{ content: string; status: "completed" | "in_progress" | "pending" }> };
@@ -322,6 +323,37 @@ describe("App", () => {
 
     // 按下时侧栏 280（SIDEBAR_DEFAULT），累计 dx=+10 → 290（基线冻结，不复利）
     expect(localStorage.getItem("harness.sidebar")).toBe("290");
+  });
+
+  it("opens the collapsed rightbar affordance with the default 0.45 ratio on fresh installs (C1a)", () => {
+    // fresh install：无 harness.rightbar 键 → 轨道关闭、右栏呈 affordance rail
+    render(<App />);
+
+    const frame = document.querySelector('[data-testid="frame"]') as HTMLElement;
+    expect(frame.hasAttribute("data-rightbar-collapsed")).toBe(true);
+    // PanelHost 不被卸载：rail 里的 tab 可点
+    fireEvent.click(screen.getByRole("tab", { name: "Sub-agents" }));
+
+    expect(frame.hasAttribute("data-rightbar-collapsed")).toBe(false);
+    expect(localStorage.getItem("harness.rightbar")).toBe(
+      String(window.innerWidth * RIGHTBAR_DEFAULT_RATIO),
+    );
+  });
+
+  it("restores the persisted rightbar width when reopening from the affordance (C1b)", () => {
+    seedRightbar("workbench");
+    localStorage.setItem("harness.rightbar", "600");
+    render(<App />);
+
+    // 收起：点击当前激活 tab → closeRightbar（轨道关闭，呈 affordance）
+    fireEvent.click(screen.getByRole("tab", { name: "Workbench" }));
+    const frame = document.querySelector('[data-testid="frame"]') as HTMLElement;
+    expect(frame.hasAttribute("data-rightbar-collapsed")).toBe(true);
+
+    // 经 affordance 重开：恢复仍驻留内存的持久化宽度（600），而非 0.45 默认
+    fireEvent.click(screen.getByRole("tab", { name: "Workbench" }));
+    expect(frame.hasAttribute("data-rightbar-collapsed")).toBe(false);
+    expect(localStorage.getItem("harness.rightbar")).toBe("600");
   });
 });
 

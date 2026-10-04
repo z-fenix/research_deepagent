@@ -49,6 +49,19 @@ describe("PanelHost", () => {
     expect(screen.getByText("No panels available")).toBeTruthy();
   });
 
+  it("renders a vertical tab rail when collapsed; rail clicks always activate", () => {
+    const onActivate = vi.fn();
+    render(<PanelHost panels={panels} activeId="subagents" onActivate={onActivate} rail />);
+    expect(document.querySelector(".panel-host--rail")).toBeTruthy();
+    // rail 态不渲染面板体（0 宽轨道里只留可点 tab）
+    expect(screen.queryByText("subagent body")).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: "Workbench" }));
+    expect(onActivate).toHaveBeenCalledWith("workbench");
+    // 已激活 tab 在 rail 里点击也只激活（不存在"再点收起"——轨道本已收起）
+    fireEvent.click(screen.getByRole("tab", { name: "Sub-agents" }));
+    expect(onActivate).toHaveBeenLastCalledWith("subagents");
+  });
+
   it("shows a per-panel fallback when the panel body throws, tabs stay alive, Retry remounts", () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     let shouldThrow = true;

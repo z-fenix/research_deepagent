@@ -63,6 +63,22 @@ describe("AppFrame", () => {
     );
   });
 
+  it("keeps the rightbar occupant mounted with an edge affordance when the track is collapsed", () => {
+    // C1：收起/未开轨不得卸载右栏占位物（fresh install 也要有可点入口）；
+    // 右把手在占位物可见时始终渲染（含 affordance 态，拖拽即可重开）。
+    render(
+      <AppFrame
+        layout={makeLayout({ rightbarTrack: false, cols: { sidebar: 280, center: 1320, rightbar: 0 } })}
+        actions={{} as never}
+        sidebar={<div>left</div>}
+        center={<div>chat</div>}
+        rightbar={<div>panel</div>}
+      />,
+    );
+    expect(screen.getByText("panel")).toBeTruthy();
+    expect(screen.getByTestId("drag-rightbar")).toBeTruthy();
+  });
+
   it("drags the sidebar handle and reports deltas against the drag-start width", () => {
     const onSidebarDrag = vi.fn();
     render(

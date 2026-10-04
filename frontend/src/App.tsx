@@ -181,7 +181,16 @@ function AgentWorkspace(): ReactNode {
             />
           </>
         }
-        rightbar={<PanelHost panels={panels} activeId={activePanel} onActivate={activatePanel} />}
+        // C1：右栏占位物恒挂载；轨道收起（cols.rightbar === 0，含 fresh install）
+        // 时呈右缘 rail affordance，tab 点击经 activatePanel 打开轨道（默认 0.45 比例）。
+        rightbar={
+          <PanelHost
+            panels={panels}
+            activeId={activePanel}
+            onActivate={activatePanel}
+            rail={layout.cols.rightbar === 0}
+          />
+        }
       />
       <ThemeSettingsDialog open={appearanceOpen} onClose={() => setAppearanceOpen(false)} />
     </>

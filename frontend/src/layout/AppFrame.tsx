@@ -7,10 +7,14 @@
 //    会穿透 ?? 落到缺失的 setSidebar 上并抛错）；
 // 3. rAF 节流在拖拽结束时补发未决增量，避免 down→move→up 快于一个 rAF 时丢增量；
 // 4. 导出 FrameLayout 别名（测试从本模块导入该名字）。
+// final review 修正（C1/M1）：右栏占位物恒挂载（收起态 = rail affordance，
+// 由宿主经 rail prop 决定形态），右把手在占位物可见时恒渲染（收起态拖拽
+// = 重开轨道的回退路径）；内部不再自持 useFrameLayout 实例（死代码），
+// layout/actions 为必填 props。
 
-import { useCallback, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useCallback, useRef, useState, type ReactNode, type Ref } from "react";
 import { CENTER_MIN } from "./columns";
-import { useFrameLayout, type FrameActions, type FrameLayoutState } from "./useFrameLayout";
+import type { FrameActions, FrameLayoutState } from "./useFrameLayout";
 
 /** FrameLayoutState 的别名，供测试与消费方使用简报中的命名。 */
 export type FrameLayout = FrameLayoutState;
@@ -24,7 +28,7 @@ export type AppFrameProps = {
   sidebar: ReactNode;
   center: ReactNode;
   rightbar: ReactNode;
-  frameRef?: RefObject<HTMLDivElement | null>;
+  frameRef?: Ref<HTMLDivElement>;
 };
 
 type Side = "sidebar" | "rightbar";
@@ -103,11 +107,8 @@ function DragHandle(props: {
 }
 
 export function AppFrame({ layout, actions, sidebar, center, rightbar, frameRef }: AppFrameProps) {
-  const [innerRef, setInnerRef] = useState<HTMLDivElement | null>(null);
-  const ref = frameRef ?? { current: innerRef };
-  const live = useFrameLayout(ref); // AppFrame 自带测量；App 可直接复用返回值
-  const state = layout ?? live.layout;
-  const act = actions ?? live.actions;
+  const state = layout;
+  const act = actions;
 
   // 回退路径的拖拽基线：按下时刻冻结的渲染宽度（Review Focus 1），
   // 避免"当前渲染宽度 + 累计 dx"随前一次 set 的重渲染而叠加。
@@ -145,7 +146,7 @@ export function AppFrame({ layout, actions, sidebar, center, rightbar, frameRef 
 
   return (
     <div
-      ref={setInnerRef}
+      ref={frameRef}
       data-testid="frame"
       className="frame"
       data-sidebar-collapsed={state.sidebarCollapsed || undefined}
@@ -156,8 +157,9 @@ export function AppFrame({ layout, actions, sidebar, center, rightbar, frameRef 
     >
       <div className="frame__sidebar">{sidebar}</div>
       <div className="frame__center">{center}</div>
+      {/* C1：右栏占位物恒挂载（收起态由宿主渲染 rail affordance），不得因轨道宽度卸载 */}
       <div className="frame__rightbar" data-rightbar-col>
-        {state.cols.rightbar > 0 ? rightbar : null}
+        {rightbar}
       </div>
       {!state.sidebarCollapsed && state.cols.sidebar > SIDEBAR_ICON_RAIL && (
         <DragHandle
@@ -168,15 +170,15 @@ export function AppFrame({ layout, actions, sidebar, center, rightbar, frameRef 
           onDragEnd={endSidebarGesture}
         />
       )}
-      {state.rightbarTrack && state.cols.rightbar > 0 && (
-        <DragHandle
-          side="rightbar"
-          left={state.viewport - state.cols.rightbar}
-          onDrag={handleRightbarDrag}
-          onDragStart={beginRightbarGesture}
-          onDragEnd={endRightbarGesture}
-        />
-      )}
+      {/* 占位物（面板或 affordance rail）恒可见 → 右把手恒渲染；
+          收起态（宽度 0）向左拖即重开（回退路径 setRightbar(0 - dx)）。 */}
+      <DragHandle
+        side="rightbar"
+        left={state.viewport - state.cols.rightbar}
+        onDrag={handleRightbarDrag}
+        onDragStart={beginRightbarGesture}
+        onDragEnd={endRightbarGesture}
+      />
     </div>
   );
 }
