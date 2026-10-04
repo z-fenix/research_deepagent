@@ -18,7 +18,7 @@
 
 ## 2. 门禁协议（方案 A：respond 即门禁）
 
-门禁工具（`src/research_deepagent/tools.py:96`）：
+门禁工具（`src/research_deepagent/tools.py:97`）：
 
 ```python
 @tool
@@ -105,7 +105,7 @@ docstring 与 `test_gate_tool_triggers_interrupt`。）
 | 状态暴露 | `stream.ts:144` | `useAgentStream` 返回 `pendingApproval: {actionRequests, reviewConfigs} \| null` 与 `approvalError` |
 | 卡片渲染 | `frontend/src/components/approval/ApprovalDock.tsx:123` | 按 `allowed_decisions` 分支：全 respond → 门禁卡（标题「阶段门禁」，respond 文本框+提交）；含 approve/reject → 敏感操作卡（批准 / 拒绝+意见输入）；`pendingApproval == null` 不渲染 |
 | 决策提交 | `stream.ts:146` `submitApproval` | 决策数组与 actionRequests **顺序一一对应**；经 SDK `stream.submit(null, { command: { resume: { decisions } } })` 走既有 run 通道（POST `/threads/{id}/runs/stream`） |
-| 未决守卫 | `frontend/src/App.tsx:69` | `pendingApproval != null` 时 Composer 传 `disabled`（`Composer.tsx:31` 直接拦截提交）——审批未决时用户不能绕过卡片发消息 |
+| 未决守卫 | `frontend/src/App.tsx:69` | `pendingApproval != null` 时 Composer 传 `disabled`（`frontend/src/components/composer/Composer.tsx:31` 直接拦截提交）——审批未决时用户不能绕过卡片发消息 |
 | 错误态 | `stream.ts:151` | 提交失败（含通道拒绝 Command）经 onError/异常落入 `approvalError` 并在 ApprovalDock 中展示，**不静默吞错** |
 
 注意：`edit` 决策本期不做——ApprovalDock 不渲染 edit 控件（spec §8 defer）。
@@ -161,7 +161,7 @@ UI→ApprovalDock 加分支并放开 spec §8 的 defer。
 `Command(resume=...)` 抛 "Cannot use Command(resume=...) without
 checkpointer"（实证）；测试经 `build_deep_agent(..., checkpointer=InMemorySaver())`
 显式注入，生产路径由平台按 `thread_id` 注入（`build_deep_agent` 的
-`checkpointer` 为测试透传参数，默认 None，agent.py:275 docstring）。
+`checkpointer` 为测试透传参数，默认 None，agent.py:248 docstring）。
 
 ### 9.2 前端
 
