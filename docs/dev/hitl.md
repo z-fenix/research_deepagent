@@ -161,7 +161,7 @@ UI→ApprovalDock 加分支并放开 spec §8 的 defer。
 `Command(resume=...)` 抛 "Cannot use Command(resume=...) without
 checkpointer"（实证）；测试经 `build_deep_agent(..., checkpointer=InMemorySaver())`
 显式注入，生产路径由平台按 `thread_id` 注入（`build_deep_agent` 的
-`checkpointer` 为测试透传参数，默认 None，agent.py:248 docstring）。
+`checkpointer` 为测试透传参数，默认 None，agent.py:249 docstring）。
 
 ### 9.2 前端
 

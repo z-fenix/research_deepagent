@@ -51,7 +51,7 @@ CompositeBackend
 | 文件 | 职责 |
 |---|---|
 | `src/research_deepagent/context.py` | `PipelineContext` / `resolve_user_id` / `resolve_assistant_id`（身份解析） |
-| `src/research_deepagent/agent.py` | `_memory_routes()`（agent.py:227）、`MEMORY_SOURCES`（agent.py:245）、`build_deep_agent(store=...)` 接线（agent.py:248） |
+| `src/research_deepagent/agent.py` | `_memory_routes()`（agent.py:228）、`MEMORY_SOURCES`（agent.py:246）、`build_deep_agent(store=...)` 接线（agent.py:249） |
 | `src/research_deepagent/prompts.py` | 「长期记忆（memory）」写入约定一节（prompts.py:64） |
 | `tests/test_memory.py` | 路由隔离、缺失文件跳过、store 透传的行为验证 |
 | `tests/test_context.py` | 身份解析优先级与兜底常量 |
@@ -60,11 +60,11 @@ CompositeBackend
 
 ### 4.1 双层 namespace 路由
 
-`_memory_routes()`（`src/research_deepagent/agent.py:227`）：
+`_memory_routes()`（`src/research_deepagent/agent.py:228`）：
 
 | 路由前缀 | namespace | `memory=` 注入文件 | 语义 |
 |---|---|---|---|
-| `/memories/agent/` | `(assistant_id, "memories")` | `/memories/agent/AGENTS.md`（agent.py:245） | Agent 级，跨用户共享，自我改进指令 |
+| `/memories/agent/` | `(assistant_id, "memories")` | `/memories/agent/AGENTS.md`（agent.py:246） | Agent 级，跨用户共享，自我改进指令 |
 | `/memories/user/` | `(resolve_user_id(rt), "memories")` | `/memories/user/preferences.md` | 用户级，按 `user_id` 隔离，个人偏好 |
 
 两个关键形态（`.venv` 实证，deepagents 0.7.13）：
@@ -86,7 +86,7 @@ CompositeBackend
 | `resolve_assistant_id(rt)`（context.py:30） | `rt.server_info.assistant_id` | `ASSISTANT_ID_FALLBACK = "research"`（context.py:9，即 langgraph.json 的 graph 键名） |
 
 调用侧：`build_deep_agent` 给 `create_deep_agent` 传
-`context_schema=PipelineContext`（agent.py:277），调用方用
+`context_schema=PipelineContext`（agent.py:283），调用方用
 `graph.invoke(..., context=PipelineContext(user_id="user-b"))` 切换用户。
 namespace 工厂在 StoreBackend 内部拿到运行时后调用上述函数，因此**同一条
 路由对不同请求解析出不同 namespace**，隔离由解析结果保证。
@@ -119,24 +119,29 @@ namespace 工厂在 StoreBackend 内部拿到运行时后调用上述函数，�
 
 ## 5. 运行时与部署
 
-- **本地开发（store 注入：验证待定，部署门禁）**：`uv run langgraph dev` /
-  `agentseek` 运行时**预期**由平台注入 store，记忆方可跨 thread 持久化；
-  该假设尚未实证——若运行时未注入 store，`get_store()` 返回 None，
-  `MemoryMiddleware` 会在每次运行时抛错。**部署门禁**：部署前在真实运行时
-  （`langgraph dev` / agentseek）跑 `scripts/async_smoke.py`（步骤 a + e，
-  见脚本 docstring）实证；若未注入，先在部署配置中配置 store。单测用
-  `build_deep_agent(store=InMemoryStore())` 显式传入（`InMemoryStore` 需要
-  `store.put` 预置，格式 `create_file_data(content)`，见
+- **本地默认 store（已修复 2026-10-04 生产事故）**：`build_deep_agent`
+  未显式传 `store` 时自动使用 `research_deepagent.store.default_store()`——
+  本地持久化 `DualModeSqliteStore`（Sqlite 单文件，默认路径
+  `~/.agentseek/research_deepagent/store.db`，`AGENTSEEK_STORE_PATH` 可改，
+  `AGENTSEEK_STORE=memory` 切回内存模式）。事故回顾：agentseek 运行时
+  **不注入** store，`get_store()` 返回 None（它只读 `runtime.store`，
+  不抛错），`StoreBackend` 随后在 `MemoryMiddleware.before_agent` 里以
+  `None.get` 崩溃——**任何消息都会崩**，与门禁/记忆无关。回归测试：
+  `test_build_without_explicit_store_does_not_crash`。
+  单测显式传 store 的方式：`build_deep_agent(store=InMemoryStore())`
+  （`store.put` 预置用 `create_file_data(content)`，见
   `tests/test_memory.py` 的 `_seeded_store`）。
 - **无 store 直接调 StoreBackend 会崩**：`get_store()` 抛出
   RuntimeError（要求在图执行上下文内或显式传 store）——生产路径不会发生
   （`create_deep_agent` 总在图上下文中执行中间件），裸调后端做实验时注意。
-- **PostgresStore 升级路径**（不引依赖）：把平台侧注入的 store 从内存实现
-  换成 LangGraph 自带的 `langgraph.store.postgres.PostgresStore`（部署配置
-  层面，通常在 agentseek / langgraph-platform 的 store 配置或自定义
-  server 装配中指定连接串）。仓库代码无需改动——`build_deep_agent(store=)`
-  与 StoreBackend 都只依赖 `BaseStore` 抽象；换库后同一 namespace 数据
-  原样迁移即可获得真正的跨进程持久化。
+- **PostgresStore 升级路径（多节点/生产）**：本地默认是单文件 Sqlite；
+  多实例部署时换成 LangGraph 自带的
+  `langgraph.store.postgres.PostgresStore`（依赖
+  `langgraph-checkpoint-postgres`，连接串在部署装配层指定）。
+  仓库代码无需改动——`build_deep_agent(store=)`、`default_store()` 与
+  StoreBackend 都只依赖 `BaseStore` 抽象；换库后同一 namespace 数据
+  原样迁移即可。注意 Sqlite 默认仅适配单进程 agentseek dev：多 worker
+  并发写同一文件不在支持范围。
 
 ## 6. 测试
 
@@ -149,13 +154,14 @@ namespace 工厂在 StoreBackend 内部拿到运行时后调用上述函数，�
 | `test_resolve_user_id_defaults_to_local_user` | 两者皆无 → `"local-user"` |
 | `test_resolve_assistant_id_falls_back_to_constant` | assistant_id 兜底常量 `"research"` |
 
-### 6.2 `tests/test_memory.py`（3 条）
+### 6.2 `tests/test_memory.py`（4 条，含回归用例）
 
 | 用例 | 验证点 |
 |---|---|
 | `test_user_memory_scoped_by_user_id` | A 的偏好注入 A 的 system prompt；换 `user_id="user-b"` 后不注入（隔离）；AGENTS.md 对两个用户都注入（agent 级共享） |
 | `test_missing_memory_files_are_skipped` | 空 store 不报错、不注入 |
 | `test_store_passthrough_to_graph` | `store=` 透传生效：种子内容经路由出现在 system prompt |
+| `test_build_without_explicit_store_does_not_crash` | 回归：不显式传 store 的生产接线不再依赖运行时注入（NoneType.get 事故），默认持久 store 生效且预置偏好照常注入 |
 
 测试技术要点：捕获 system prompt 的 `_SystemCapturingChatModel` 沿用
 `tests/test_skills.py` 已实证的实现（pydantic 字段声明 + `_generate`
@@ -164,8 +170,8 @@ namespace 工厂在 StoreBackend 内部拿到运行时后调用上述函数，�
 ### 6.3 运行
 
 ```bash
-uv run pytest tests/test_context.py tests/test_memory.py -q   # 单独运行（11 passed）
-uv run pytest tests/ -q                                       # 全量（219 passed, 1 warning）
+uv run pytest tests/test_context.py tests/test_memory.py tests/test_store_factory.py -q   # 记忆相关（18 passed）
+uv run pytest tests/ -q                                       # 全量（226 passed, 1 warning）
 ```
 
 唯一 warning 是基线内已知的 `google/genai` DeprecationWarning，与本能力无关。
@@ -173,7 +179,7 @@ uv run pytest tests/ -q                                       # 全量（219 pas
 ## 7. 扩展指南
 
 - **新增记忆文件**（如 `/memories/agent/style.md`）：三处同步——
-  `MEMORY_SOURCES`（agent.py:245）加路径、`prompts.py`「长期记忆」一节写
+  `MEMORY_SOURCES`（agent.py:246）加路径、`prompts.py`「长期记忆」一节写
   清何时读写它、`test_orchestrator_prompt_declares_memory_conventions` 的
   断言同步（契约测试即漂移提醒）。
 - **新增第三个 scope**（如组织级 `/policies/`）：在 `_memory_routes()`
@@ -187,7 +193,7 @@ uv run pytest tests/ -q                                       # 全量（219 pas
 
 | 症状 | 排查方向 |
 |---|---|
-| 偏好未注入 system prompt | ① 预置/写入是否落对了 namespace 与 key：`(user_id, "memories")` + `/preferences.md`（注意前缀剥离，key 不含 `/memories/user/`）；② `memory=` 路径与路由前缀是否一致（agent.py:245）；③ 身份解析结果：当前请求的 `user_id` 是什么（server_info 优先，本地走 context，缺省 `local-user`）——用 `PipelineContext(user_id=...)` 对齐预置的 namespace |
+| 偏好未注入 system prompt | ① 预置/写入是否落对了 namespace 与 key：`(user_id, "memories")` + `/preferences.md`（注意前缀剥离，key 不含 `/memories/user/`）；② `memory=` 路径与路由前缀是否一致（agent.py:246）；③ 身份解析结果：当前请求的 `user_id` 是什么（server_info 优先，本地走 context，缺省 `local-user`）——用 `PipelineContext(user_id=...)` 对齐预置的 namespace |
 | 偏好对别的用户可见（隔离失效） | namespace 解析错位：两个请求实际解析出同一 `user_id`（例如都落了 `local-user` 兜底），或路由前缀写错走到了 default backend；对照 `test_user_memory_scoped_by_user_id` 的预置方式复查 |
 | 记忆被整体覆盖、旧条目丢失 | Agent 违反写入约定用了 `write_file`：检查 `ORCHESTRATOR_INSTRUCTIONS` 的「长期记忆」一节是否被改动（契约测试 `test_orchestrator_prompt_declares_memory_conventions` 失败即漂移）；必要时从 store 侧恢复数据 |
 | 启动即崩，报 "StoreBackend must be used inside a LangGraph graph execution" | StoreBackend 拿不到 store：确认生产路径经 `build_deep_agent`/`langgraph dev`（平台注入）运行；脚本直调时给 `build_deep_agent(store=...)` 或 `StoreBackend(store=...)` 显式传实例 |
