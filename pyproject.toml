@@ -17,6 +17,7 @@ dependencies = [
     "agentseek-api[embedded]==0.2.3",
     "mcp>=1.27.1,<2",
     "langchain-mcp-adapters>=0.3.2",
+    "langgraph-checkpoint-sqlite>=3.1.1",
 ]
 
 [build-system]
