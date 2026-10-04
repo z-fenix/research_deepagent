@@ -48,4 +48,23 @@ describe("PanelHost", () => {
     render(<PanelHost panels={[]} activeId={null} onActivate={vi.fn()} />);
     expect(screen.getByText("No panels available")).toBeTruthy();
   });
+
+  it("shows a per-panel fallback when the panel body throws, tabs stay alive, Retry remounts", () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    let shouldThrow = true;
+    const crashing: PanelDef[] = [
+      { id: "trajectory", title: "Trajectory", render: () => { if (shouldThrow) throw new Error("boom"); return <div>trajectory body</div>; } },
+    ];
+    render(<PanelHost panels={crashing} activeId="trajectory" onActivate={vi.fn()} />);
+
+    expect(screen.getByText("Panel crashed")).toBeTruthy();
+    // 面板崩溃不影响 PanelHost 自身（tab 栏仍在）
+    expect(screen.getByRole("tab", { name: "Trajectory" })).toBeTruthy();
+
+    shouldThrow = false;
+    fireEvent.click(screen.getByRole("button", { name: /retry/i }));
+    expect(screen.getByText("trajectory body")).toBeTruthy();
+    expect(screen.queryByText("Panel crashed")).toBeNull();
+    consoleError.mockRestore();
+  });
 });

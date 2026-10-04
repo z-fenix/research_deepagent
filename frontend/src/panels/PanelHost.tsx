@@ -3,6 +3,7 @@
 // "轨道内的内容"，轨道有无由 AppFrame 的列求解决定（spec §4.2）。
 
 import { useEffect, type ReactNode } from "react";
+import { PanelErrorBoundary } from "./PanelErrorBoundary";
 
 export type PanelId = "subagents" | "trajectory" | "workbench";
 
@@ -60,7 +61,7 @@ export function PanelHost(props: {
       <div className="panel-host__body" role="tabpanel">
         {active === null
           ? <p className="panel-host__empty">{panels.length === 0 ? "No panels available" : "Select a panel"}</p>
-          : active.render()}
+          : <PanelErrorBoundary key={active.id} render={active.render} />}
       </div>
     </div>
   );
