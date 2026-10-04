@@ -586,3 +586,26 @@ body { margin: 0; }
   .sidebar--open { transform: translateX(0); }
   .sidebar__close { display: block; }
 }
+
+/* harness frame（task08 三栏框架） */
+.frame {
+  display: grid;
+  position: relative;
+  height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+}
+.frame__sidebar { overflow-y: auto; min-width: 0; }
+.frame__center { overflow-y: auto; min-width: 0; display: flex; flex-direction: column; }
+.frame__rightbar { overflow: hidden; position: relative; }
+.frame__handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 9px;
+  transform: translateX(-50%);
+  cursor: col-resize;
+  z-index: 30;
+}
+.frame__handle[data-side="sidebar"] { cursor: col-resize; }
+.frame__handle[data-dragging] { background: var(--accent, #4f6ef7); opacity: 0.25; }
