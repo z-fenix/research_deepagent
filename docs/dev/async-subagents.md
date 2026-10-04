@@ -37,8 +37,8 @@ AsyncSubAgentMiddleware 提供的五把「遥控器」：
 | 只异步化 SDD，PRD / BDD 保持同步 `task` | SDD 逐故事产出耗时最长（每故事一份文档 + 校验修复循环），异步化收益最大；PRD / BDD 产出在委派当回合内即可回收、紧跟着做门禁汇报，本流程里用户确认后才进入下一阶段，同步等待点天然存在，异步化不省时间反而把一次门禁汇报拆成多回合 |
 | sdd 独立图 + `langgraph.json` 注册（键 `sdd-agent`，`langgraph.json:7`） | AsyncSubAgent 委派的对象是「远端图」（`graph_id` 即远端 assistant ID），不是进程内 spec 字典，所以 SDD 阶段必须独立成图注册。本仓库用单进程 `langgraph dev` 部署，`research` 与 `sdd-agent` 两个图在同一 ASGI 进程内：AsyncSubAgent 不传 `url` 时走进程内 ASGI 传输，无需额外网络配置。部署进程本就加载 `agent.py`，`sdd_graph.py` 复用其 `model` 与 `WORKSPACE_ROOT`，导入幂等 |
 | `response_format=SddPhaseReport` 放在 sdd 图顶层（`sdd_graph.py:40`）而非 AsyncSubAgent 字段 | deepagents 0.7.13 的 `AsyncSubAgent` TypedDict 只有 `name` / `description` / `graph_id` / `url` / `headers` 字段，**没有 `response_format`**——结构化阶段报告只能由被委派的图自己产出。注意回传形态与同步子 Agent 不同（实证，见 4.2）：独立图顶层 `response_format` 的结果以 state 的 **`structured_response`** 键承载解析后的 `SddPhaseReport` 实例，最终 AIMessage 是模型原始文本透传；同步子 Agent 则是 ToolMessage 里的 `model_dump_json()` 规范化 JSON |
-| 混挂分流机制：`"graph_id" in spec` 识别 | 同一个 `subagents=[...]` 列表里同步 dict 与 `AsyncSubAgent` 混挂（`agent.py:216`）；`create_deep_agent` 装配时按 spec 是否带 `graph_id` 分流——带则装配 AsyncSubAgentMiddleware（五工具 + `async_tasks` state），不带仍走同步 `task` 工具。识别是鸭子式的：`prd_agent` / `bdd_agent` 字典不带 `graph_id` 即保持同步 |
-| `skills=["/skills/"]` 无条件挂载 + 缺目录仅告警（`agent.py:219` / `sdd_graph.py:41`） | deepagents 0.7.13 实证：SkillsMiddleware 对缺失源目录仅 `logger.warning` 并记入私有 `skills_load_errors` state，构建与调用均不抛异常。因此接线（`agent.py`，先落）与种子内容（`workspace/skills/`，后落）可以解耦，运行期删掉 skills 目录也不会弄挂图。详见 `skills.md` |
+| 混挂分流机制：`"graph_id" in spec` 识别 | 同一个 `subagents=[...]` 列表里同步 dict 与 `AsyncSubAgent` 混挂（`agent.py:315`）；`create_deep_agent` 装配时按 spec 是否带 `graph_id` 分流——带则装配 AsyncSubAgentMiddleware（五工具 + `async_tasks` state），不带仍走同步 `task` 工具。识别是鸭子式的：`prd_agent` / `bdd_agent` 字典不带 `graph_id` 即保持同步 |
+| `skills=["/skills/"]` 无条件挂载 + 缺目录仅告警（`agent.py:322` / `sdd_graph.py:41`） | deepagents 0.7.13 实证：SkillsMiddleware 对缺失源目录仅 `logger.warning` 并记入私有 `skills_load_errors` state，构建与调用均不抛异常。因此接线（`agent.py`，先落）与种子内容（`workspace/skills/`，后落）可以解耦，运行期删掉 skills 目录也不会弄挂图。详见 `skills.md` |
 
 ## 3. 门禁语义变化
 
@@ -95,7 +95,7 @@ SDD 启动后 `todos` / `project_state.md` 的推进方式：
 
 | 文件 | 职责 |
 |---|---|
-| `src/research_deepagent/agent.py` | `sdd_async_agent = AsyncSubAgent(name="sdd-agent", ..., graph_id="sdd-agent")`（`agent.py:191`，不传 `url` = 进程内 ASGI）；`build_deep_agent` 默认 subagents 混挂 `[prd_agent, bdd_agent, sdd_async_agent]`（`agent.py:216`） |
+| `src/research_deepagent/agent.py` | `sdd_async_agent = AsyncSubAgent(name="sdd-agent", ..., graph_id="sdd-agent", url=SDD_AGENT_URL)`（`agent.py:223`，HTTP 自指 agentseek 端点）；`build_deep_agent` 默认 subagents 混挂 `[prd_agent, bdd_agent, sdd_async_agent]`（`agent.py:315`） |
 | `src/research_deepagent/sdd_graph.py` | sdd 独立图：`build_sdd_graph`（`sdd_graph.py:28`）以 `system_prompt=SDD_AGENT_INSTRUCTIONS` + `tools=[validate_traceability]` + 顶层 `response_format=SddPhaseReport`（`:40`）构建；模块级 `graph`（`:45`）即注册目标 |
 | `langgraph.json` | `graphs` 注册 `"sdd-agent": "./src/research_deepagent/sdd_graph.py:graph"`（`:7`），与 `research` 同部署 |
 | `src/research_deepagent/prompts.py` | 编排者委派纪律（`:48`，第一条限定同步 task 只指 prd/bdd、SDD 走异步）、异步纪律（`:57`）、流程第 4 步（`:79`） |
@@ -180,19 +180,29 @@ fake 模型脚本的适配要点（`_get_ls_params` provider 直通、
   `test_task_tool_listing_has_no_other_subagents` /
   `test_langgraph_json_registers_research_and_sdd_agent` 会失败作为提醒；
   确属有意为之需同步修订这些断言与异步纪律节。
-- **ASGI 传输的异步入口要求**：deepagents 0.7.13 明确，不传 `url` 的进程内
-  ASGI 传输只在**异步入口**（`ainvoke` / 异步服务）可用，同步 `invoke` 需要
-  显式 `url`。本仓库部署走 `langgraph dev`（异步服务），冒烟脚本走 SDK 的
-  `runs.wait`，均不受影响；但本地同步 `graph.invoke` 编排者图会踩到该限制。
-- **跨进程 / 远端部署**：给 `AsyncSubAgent` 加 `url=`（Agent Protocol 兼容
-  服务）即可把 sdd 图拆到独立进程，仓库代码无需其他改动——`graph_id` 仍为
-  远端注册的图键。
+- **ASGI 进程内传输在本运行时不可用（2026-10-04 实证）**：`url=None` 时
+  `get_client` 走进程内 ASGI 传输，但 agentseek dev 不是 langgraph-api
+  服务器，不向 langgraph_sdk 注册 ASGI app——httpx ASGI transport 拿到
+  `app=None`，`start_async_task` 即报
+  `TypeError: 'NoneType' object is not callable`（调用栈：
+  `httpx/_transports/asgi.py` → `await self.app(...)`）。同步 `invoke`
+  另有"ASGI 需异步入口"的 ValueError（上游拦截为工具结果）。
+- **现行方案：HTTP 传输自指**：`sdd_async_agent` 显式携带
+  `url=SDD_AGENT_URL`（`agent.py:222`，默认 `http://127.0.0.1:2024`，
+  `AGENTSEEK_API_URL` 可覆盖），与前端连的是同一个 Agent Protocol 端点。
+  代价与观察点：HTTP 自指要求服务端能**并发**处理 supervisor run 与
+  sdd run——若 agentseek 串行执行会表现为启动超时，届时需调整其 worker
+  配置或改回同步委派。
+- **跨进程 / 远端部署**：`url=` 指向任意 Agent Protocol 兼容服务即可把
+  sdd 图拆到独立进程，仓库代码无需其他改动——`graph_id` 仍为远端注册的
+  图键。
 
 ## 7. 故障排查
 
 | 症状 | 排查方向 |
 |---|---|
-| 同步 task 工具列表里出现 `sdd-agent` | 混挂识别失效：检查 `agent.py:191` 的 `sdd_async_agent` 是否仍是 `AsyncSubAgent` 且带 `graph_id`（改成普通 dict 即回同步列表）；契约测试 `test_task_tool_exposes_only_named_subagents` 失败即提示 |
+| `start_async_task` 报 `'NoneType' object is not callable` | ASGI 传输未禁用：`sdd_async_agent`（agent.py:223）必须带 `url`（agentseek 非 langgraph-api，进程内 ASGI 的 app 为 None）；`AGENTSEEK_API_URL` 是否指向 agentseek 实际端口 |
+| 同步 task 工具列表里出现 `sdd-agent` | 混挂识别失效：检查 `agent.py:223` 的 `sdd_async_agent` 是否仍是 `AsyncSubAgent` 且带 `graph_id`（改成普通 dict 即回同步列表）；契约测试 `test_task_tool_exposes_only_named_subagents` 失败即提示 |
 | 编排者不结束回合、阻塞等待 SDD 完成 | 流程第 4 步或异步纪律节被改弱：`test_orchestrator_prompt_declares_async_discipline` / `test_orchestrator_prompt_declares_delegation_conventions`（分节锚定）失败即提示漂移；改措辞需同步改断言 |
 | `start_async_task` 报远端图不存在 | `langgraph.json` 是否仍注册 `sdd-agent`（`test_langgraph_json_registers_research_and_sdd_agent`）；`langgraph dev` 是否已重启加载新注册的图 |
 | `check_async_task` 回收不到结构化报告 | sdd 图顶层 `response_format=SddPhaseReport`（`sdd_graph.py:40`）是否被移除（缺失则 `structured_response` 不产出）；`SddPhaseReport` 字段与 `SDD_AGENT_INSTRUCTIONS`「完成标准」一节是否漂移 |

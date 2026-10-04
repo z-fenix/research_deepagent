@@ -60,8 +60,8 @@ HITL 协议支持 approve / edit / reject / respond 四种决策，本仓库的�
 | `reject` | 敏感工具拒绝 | 同上 | 需带 `message`（拒绝原因），回传给编排者上报 |
 | `edit` | **本期不做（defer）** | 未配置、UI 不渲染 | 协议保留；后端可按 deepagents 文档扩展 |
 
-中断配置由 `_build_interrupt_on()`（`src/research_deepagent/agent.py:176`）
-构建，门禁工具名常量 `GATE_TOOL`（agent.py:173）：
+中断配置由 `_build_interrupt_on()`（`src/research_deepagent/agent.py:177`）
+构建，门禁工具名常量 `GATE_TOOL`（agent.py:174）：
 
 ```python
 {
@@ -71,7 +71,7 @@ HITL 协议支持 approve / edit / reject / respond 四种决策，本仓库的�
 }
 ```
 
-- pencli 工具名**构建时动态**从 `pencli_tools` 取（agent.py:165 加载）：
+- pencli 工具名**构建时动态**从 `pencli_tools` 取（agent.py:190 加载）：
   MCP 不可用的降级模式下该段为空、构建不报错
   （`test_degraded_mode_without_pencli`）；
 - deepagents 还会把 `FilesystemPermission(mode="interrupt")` 规则自动生成
@@ -124,7 +124,7 @@ docstring 与 `test_gate_tool_triggers_interrupt`。）
 |---|---|
 | 「同意」文本解析误判（方案 A 的已知代价） | 解析由模型按提示词关键词执行，接线层只保证原文无损回传（`test_gate_resume_with_approve` / `test_gate_resume_with_revision` 断言 ToolMessage == 原文）。缓解：提示词列举关键词 + 否定语义示例、Gate Log 留原文可审计；升级路径见 §8 方案 B |
 | 中断期间用户绕过审批发消息 | 前端 composer 禁用（App.tsx）；**服务端无强约束**（LangGraph 行为：新消息会排队/开启新 run），跨端接入时需自行加守卫 |
-| agentseek run 通道拒绝 `Command` 输入 | 源码层面成立：langgraph_sdk 0.4.4 把 `command`（含 `{"resume": ...}`）原样放进 run 提交负载（`langgraph_sdk/_async/runs.py`）；**真实往返以 `scripts/async_smoke.py` 步骤 e 的运行结果为准**（PASS = 通道可用，脚本 docstring 记录了验证状态）。同属部署门禁：平台 store 注入（记忆层依赖）亦为验证待定，部署前以 `scripts/async_smoke.py` 步骤 a + e 一并实证，详见 memory.md §5 |
+| agentseek run 通道拒绝 `Command` 输入 | 源码层面成立：langgraph_sdk 0.4.4 把 `command`（含 `{"resume": ...}`）原样放进 run 提交负载（`langgraph_sdk/_async/runs.py`）；**真实往返以 `scripts/async_smoke.py` 步骤 e 的运行结果为准**（PASS = 通道可用，脚本 docstring 记录了验证状态）。同属部署验证：Command 恢复通道（store 注入已由本地默认 store 关闭，见 memory.md §5）（记忆层依赖）亦为验证待定，部署前以 `scripts/async_smoke.py` 步骤 a + e 一并实证，详见 memory.md §5 |
 
 ## 8. 扩展指南（方案 B 升级路径）
 
@@ -161,7 +161,7 @@ UI→ApprovalDock 加分支并放开 spec §8 的 defer。
 `Command(resume=...)` 抛 "Cannot use Command(resume=...) without
 checkpointer"（实证）；测试经 `build_deep_agent(..., checkpointer=InMemorySaver())`
 显式注入，生产路径由平台按 `thread_id` 注入（`build_deep_agent` 的
-`checkpointer` 为测试透传参数，默认 None，agent.py:249 docstring）。
+`checkpointer` 为测试透传参数，默认 None，agent.py:283 docstring）。
 
 ### 9.2 前端
 
@@ -181,7 +181,7 @@ uv run python scripts/async_smoke.py   # 冒烟：异步链路 + 门禁往返（
 
 | 症状 | 排查方向 |
 |---|---|
-| 门禁中断未出现（run 直接跑完或报错） | ① `interrupt_on` 是否仍含 `request_phase_approval`（agent.py:176，`test_interrupt_on_includes_sensitive_tools` 邻近配置断言可快速复跑）；② 工具名大小写/改名（`GATE_TOOL` 常量与 tools.py 注册名必须一致）；③ pencli 条目是动态名，降级模式下本就没有；④ 模型没调门禁工具——查提示词流程第 2 步是否被改动 |
+| 门禁中断未出现（run 直接跑完或报错） | ① `interrupt_on` 是否仍含 `request_phase_approval`（agent.py:177，`test_interrupt_on_includes_sensitive_tools` 邻近配置断言可快速复跑）；② 工具名大小写/改名（`GATE_TOOL` 常量与 tools.py 注册名必须一致）；③ pencli 条目是动态名，降级模式下本就没有；④ 模型没调门禁工具——查提示词流程第 2 步是否被改动 |
 | 恢复失败 / 恢复后仍中断 | ① checkpointer 缺失：裸图 `Command(resume=...)` 必抛错（生产靠平台注入；本地复现用 `build_deep_agent(checkpointer=InMemorySaver())`）；② `thread_id` 不一致：resume 必须发到产生中断的同一 thread；③ command 形态：`{"resume": {"decisions": [...]}}`，决策数组与 action_requests 顺序一一对应、type 拼写精确（respond/approve/reject） |
 | 审批卡不渲染 | ① `extractPendingApproval` 返回 null：中断 value 缺 `action_requests`/`actionRequests`（双键名兼容见 stream.ts:40），或 requests 数组为空；② `pendingApproval` 未传到 `ApprovalDock`（App.tsx 接线）；③ 卡片在 `actionRequests.length === 0` 时也不渲染（属预期） |
 | 提交审批后前端报错 | `approvalError` 有展示即通道拒绝——按 §7 第三行的冒烟结论定位：确认 agentseek 版本接受 `command.resume` 负载，或决策数组长度与 action_requests 不匹配 |
