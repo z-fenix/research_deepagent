@@ -213,7 +213,13 @@ bdd_agent = {
 # "graph_id" in spec 识别并分流到 AsyncSubAgentMiddleware（五个 async task
 # 工具）。graph_id 指向 Task 1 注册的独立 sdd 图（langgraph.json 键
 # "sdd-agent"，模块 research_deepagent.sdd_graph，其顶层声明
-# response_format=SddPhaseReport）；不传 url 走 ASGI 进程内传输（同部署）。
+# response_format=SddPhaseReport）。
+# url 必填：agentseek dev 不是 langgraph-api 服务器，ASGI 进程内传输
+# （url=None）拿到的 app 为 None，启动即
+# "'NoneType' object is not callable"（2026-10-04 实测）——必须走 HTTP
+# 传输自指 agentseek 自身的 Agent Protocol 端点（默认 2024 端口，
+# AGENTSEEK_API_URL 可覆盖）。
+SDD_AGENT_URL = os.getenv("AGENTSEEK_API_URL", "http://127.0.0.1:2024")
 sdd_async_agent = AsyncSubAgent(
     name="sdd-agent",
     description=(
@@ -222,6 +228,7 @@ sdd_async_agent = AsyncSubAgent(
         "后台异步执行，产出经 check_async_task 回收。"
     ),
     graph_id="sdd-agent",
+    url=SDD_AGENT_URL,
 )
 
 
