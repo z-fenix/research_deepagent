@@ -5,10 +5,13 @@ const LINE_HEIGHT_PX = 24;
 
 export default function Composer({
   isLoading,
+  disabled = false,
   onSubmit,
   onStop,
 }: {
   isLoading: boolean;
+  /** 审批未决时禁用提交（Review Focus 1：避免绕过门禁直接发消息）。 */
+  disabled?: boolean;
   onSubmit: (text: string) => void;
   onStop: () => void;
 }) {
@@ -25,7 +28,7 @@ export default function Composer({
 
   function send() {
     const value = text.trim();
-    if (!value || isLoading) return;
+    if (!value || isLoading || disabled) return;
     onSubmit(value);
     setText("");
   }
@@ -44,6 +47,7 @@ export default function Composer({
         className="composer__input"
         rows={1}
         value={text}
+        disabled={disabled}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={handleKeyDown}
         onCompositionStart={() => setComposing(true)}
@@ -65,7 +69,7 @@ export default function Composer({
           type="button"
           className="composer__button"
           onClick={send}
-          disabled={!text.trim()}
+          disabled={!text.trim() || disabled}
           aria-label="Send message"
         >
           Send

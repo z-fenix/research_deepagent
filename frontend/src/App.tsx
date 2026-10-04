@@ -7,6 +7,7 @@ import Header from "./components/shell/Header";
 import ThemeSettingsDialog from "./components/shell/ThemeSettingsDialog";
 import Composer from "./components/composer/Composer";
 import TodoDock from "./components/todo/TodoDock";
+import { ApprovalDock } from "./components/approval/ApprovalDock";
 import MessageList from "./components/chat/MessageList";
 import ActivityCard from "./components/chat/ActivityCard";
 
@@ -60,8 +61,14 @@ function AgentWorkspace() {
             </section>
           </div>
           <TodoDock todos={stream.todos} />
+          <ApprovalDock
+            pendingApproval={stream.pendingApproval ?? null}
+            error={stream.approvalError}
+            onSubmit={(decisions) => void stream.submitApproval(decisions)}
+          />
           <Composer
             isLoading={stream.isLoading}
+            disabled={stream.pendingApproval != null}
             onSubmit={stream.submit}
             onStop={stream.stop}
           />

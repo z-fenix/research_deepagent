@@ -96,6 +96,97 @@ body { margin: 0; }
   color: var(--app-state-warn);
 }
 
+/* Approval dock (HITL interrupts) --------------------------------------- */
+.approval-dock {
+  width: min(820px, 100%);
+  margin: 0 auto;
+  padding: 0.25rem 1rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.approval-card {
+  border: 1px solid var(--app-border-l2);
+  border-radius: var(--app-radius-md);
+  background: var(--app-bg-accent-soft);
+  padding: 0.7rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  box-shadow: var(--app-shadow-lv1);
+}
+
+.approval-card__header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.approval-card__tool {
+  font-family: var(--app-font-family-code);
+  font-size: 0.85em;
+  color: var(--app-label-secondary);
+}
+
+.approval-card__args {
+  margin: 0;
+  background: var(--app-bg-layer-2);
+  border-radius: var(--app-radius-sm);
+  padding: 0.5rem 0.65rem;
+  font-size: 0.85em;
+  font-family: var(--app-font-family-code);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.approval-card__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.approval-card__input {
+  resize: vertical;
+  border: 1px solid var(--app-border-l2);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-bg-base);
+  color: var(--app-label-primary);
+  font: inherit;
+  padding: 0.45rem 0.6rem;
+}
+.approval-card__input:focus {
+  outline: none;
+  border-color: var(--app-accent);
+}
+
+.approval-card__button {
+  align-self: flex-start;
+  border: 0;
+  border-radius: var(--app-radius-sm);
+  background: var(--app-accent);
+  color: var(--app-label-on-accent);
+  padding: 0.45rem 0.9rem;
+  font: inherit;
+  cursor: pointer;
+}
+.approval-card__button:hover:not(:disabled) { background: var(--app-accent-hover); }
+.approval-card__button:disabled { opacity: 0.5; cursor: not-allowed; }
+.approval-card__button--reject { background: var(--app-state-error); }
+
+.approval-card__reject {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.approval-card__decided { margin: 0; color: var(--app-label-secondary); font-size: 0.9em; }
+
+.approval-dock__error { margin: 0; }
+
+
 .msg {
   border-radius: var(--app-radius-md);
   padding: 0.75rem 1rem;

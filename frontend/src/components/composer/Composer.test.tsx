@@ -58,4 +58,16 @@ describe("Composer", () => {
     fireEvent.click(screen.getByLabelText("Stop generation"));
     expect(onStop).toHaveBeenCalled();
   });
+
+  it("does not send while an approval is pending (Review Focus 1)", () => {
+    const onSubmit = vi.fn();
+    render(<Composer isLoading={false} disabled onSubmit={onSubmit} onStop={vi.fn()} />);
+    type("绕过审批");
+    fireEvent.keyDown(screen.getByLabelText("Message input"), { key: "Enter" });
+    expect(onSubmit).not.toHaveBeenCalled();
+    const send = screen.getByLabelText("Send message") as HTMLButtonElement;
+    expect(send.disabled).toBe(true);
+    fireEvent.click(send);
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
 });
