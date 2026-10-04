@@ -37,11 +37,17 @@ describe("flattenTrajectoryRows", () => {
     expect(rows.find((r) => r.turn === 0)).toMatchObject({ kind: "turn-header", collapsedSummary: "turn" });
   });
 
-  it("collapses an assistant followed by tool rows into one summary", () => {
+  it("collapses an assistant plus its tool rows into one summary, later steps still render", () => {
+    // 参照语义（§5.2）：折叠只隐藏该 assistant + 紧随的工具行，
+    // 同 turn 内后续 step（请求头 + assistant + 工具）继续渲染。
     const turns = deriveTrajectory(messages);
     const rows = flattenTrajectoryRows(turns, new Set(), new Set(["0:1"]));
     const turn0 = rows.filter((r) => r.turn === 0);
-    expect(turn0.map((r) => r.kind)).toEqual(["turn-header", "request-header", "assistant"]);
+    expect(turn0.map((r) => r.kind)).toEqual([
+      "turn-header", "request-header", "assistant", "request-header", "assistant",
+    ]);
     expect(turn0[2]!.collapsedSummary).toBe("assistant");
+    expect(turn0[2]!.step).toBe(1);
+    expect(turn0[4]).toMatchObject({ kind: "assistant", step: 2, collapsedSummary: null });
   });
 });

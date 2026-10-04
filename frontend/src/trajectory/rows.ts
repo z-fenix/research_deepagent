@@ -41,8 +41,8 @@ export function flattenTrajectoryRows(
     for (const step of turn.steps) {
       const key = assistantKey(turn.turn, step.step);
       const collapsible = step.cell.toolBlocks.length > 0;
-      // 折叠 assistant：请求边界行保留（与其后内容同帧），summary 行顶替
-      // 该 assistant + 其工具行 + turn 内后续 step（测试基准语义：折叠到 turn 尾）。
+      // 折叠 assistant（参照 §5.2 语义）：请求边界行保留（与其后内容同帧），
+      // summary 行顶替该 assistant + 紧随其工具行；同 turn 后续 step 继续渲染。
       if (collapsible && collapsedAssistants.has(key)) {
         rows.push({
           key: `req-${key}`, kind: "request-header", turn: turn.turn, step: step.step,
@@ -53,7 +53,7 @@ export function flattenTrajectoryRows(
           text: step.cell.text, model: step.cell.model, usage: step.cell.usage, block: null,
           collapsedSummary: "assistant",
         });
-        break;
+        continue;
       }
       rows.push({
         key: `req-${key}`, kind: "request-header", turn: turn.turn, step: step.step,
