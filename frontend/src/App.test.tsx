@@ -8,7 +8,9 @@ const streamState: {
   messages: Array<Record<string, unknown>>;
   isLoading: boolean;
   error: null;
+  interrupt: { value: unknown } | null;
   submit: ReturnType<typeof vi.fn>;
+  stop: ReturnType<typeof vi.fn>;
 } = {
   values: {
     todos: [
@@ -48,8 +50,26 @@ const streamState: {
   ],
   isLoading: false,
   error: null,
+  interrupt: null,
   submit: vi.fn(),
+  stop: vi.fn(),
 };
+
+/** HITL 中断样例（lib/stream.ts PendingApproval 形态，snake_case 由 extractPendingApproval 归一）。 */
+const samplePendingApproval = {
+  actionRequests: [
+    { name: "request_phase_approval", args: { phase: "prd", summary: "x" } },
+  ],
+  reviewConfigs: [
+    { action_name: "request_phase_approval", allowed_decisions: ["respond"] },
+  ],
+};
+
+/** 右栏默认打开（可带初始面板）：jsdom 视口 1024，轨道存在时 PanelHost 才挂载。 */
+function seedRightbar(panel: "subagents" | "trajectory" | "workbench" | null): void {
+  localStorage.setItem("harness.rightbar", "600");
+  if (panel !== null) localStorage.setItem("harness.panel", panel);
+}
 
 let capturedStreamOptions: Record<string, unknown> | null = null;
 
@@ -71,6 +91,10 @@ afterEach(() => {
   capturedStreamOptions = null;
   window.history.replaceState({}, "", "http://localhost:3000/");
   streamState.isLoading = false;
+  streamState.interrupt = null;
+  localStorage.removeItem("harness.panel");
+  localStorage.removeItem("harness.rightbar");
+  localStorage.removeItem("harness.sidebar");
   streamState.values = {
     todos: [
       { content: "Plan the report sections", status: "completed" },
@@ -116,6 +140,8 @@ describe("App", () => {
   });
 
   it("renders a collapsible todo dock with progress summary", () => {
+    // TodoDock 现居右栏 Workbench 面板：先打开右栏并激活该面板（语义不变，仅入口变化）
+    seedRightbar("workbench");
     render(<App />);
 
     const summary = screen.getByText("Research plan");
@@ -258,6 +284,44 @@ describe("App", () => {
 
     expect(screen.queryByText("Research plan")).toBeNull();
     expect(screen.getByText("Sub-agent: research-agent")).toBeTruthy();
+  });
+
+  it("renders the three-column frame with panel tabs in the right bar", () => {
+    seedRightbar(null);
+    render(<App />);
+
+    expect(document.querySelector('[data-testid="frame"]')).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Sub-agents" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Trajectory" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Workbench" })).toBeTruthy();
+  });
+
+  it("keeps the approval contract: pending approval disables the composer (Review Focus 5)", () => {
+    seedRightbar(null);
+    streamState.interrupt = { value: samplePendingApproval };
+    render(<App />);
+
+    // 审批未决：composer 输入与提交按钮均禁用
+    expect((screen.getByRole("textbox") as HTMLTextAreaElement).disabled).toBe(true);
+    const submitBtn = screen.getByRole("button", { name: /send/i });
+    expect(submitBtn).toHaveProperty("disabled", true);
+
+    // 审批卡在 Workbench 面板内可用（切到 Workbench tab 后可见）
+    fireEvent.click(screen.getByRole("tab", { name: "Workbench" }));
+    expect(screen.getByTestId("approval-dock")).toBeTruthy();
+  });
+
+  it("routes sidebar drags through the press-frozen baseline into the persisted pref", () => {
+    render(<App />);
+
+    const handle = document.querySelector('[data-testid="drag-sidebar"]') as HTMLElement;
+    expect(handle).toBeTruthy();
+    fireEvent.pointerDown(handle, { button: 0, pointerId: 1, clientX: 100 });
+    fireEvent.pointerMove(handle, { button: 0, pointerId: 1, clientX: 110 });
+    fireEvent.pointerUp(handle, { button: 0, pointerId: 1, clientX: 110 });
+
+    // 按下时侧栏 280（SIDEBAR_DEFAULT），累计 dx=+10 → 290（基线冻结，不复利）
+    expect(localStorage.getItem("harness.sidebar")).toBe("290");
   });
 });
 

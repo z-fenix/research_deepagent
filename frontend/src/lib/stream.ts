@@ -106,6 +106,8 @@ export function sessionLink(threadId: string | undefined): string | null {
 export type AgentStream = {
   rows: Row[];
   todos: TodoItem[];
+  /** 原始 stream.values（供 readAsyncTasks 读取 async_tasks 等扩展键）。 */
+  values: StreamState;
   isLoading: boolean;
   error: unknown;
   pendingApproval: PendingApproval | null;
@@ -165,6 +167,7 @@ export function useAgentStream(): AgentStream {
   return {
     rows,
     todos,
+    values: stream.values,
     isLoading: stream.isLoading,
     error: stream.error,
     pendingApproval,

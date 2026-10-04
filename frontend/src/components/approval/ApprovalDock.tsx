@@ -163,7 +163,7 @@ export function ApprovalDock({
   }
 
   return (
-    <section className="approval-dock" aria-label="审批">
+    <section className="approval-dock" aria-label="审批" data-testid="approval-dock">
       {pendingApproval.actionRequests.map((request, index) => (
         <ApprovalCard
           key={`${index}-${request.name}`}
