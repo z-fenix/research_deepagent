@@ -23,6 +23,17 @@ describe("TrajectoryView", () => {
     expect(screen.getByText("step one body")).toBeTruthy();
   });
 
+  it("enables time modes when message-id captures convert into step keys (C2 end-to-end)", () => {
+    // 回归：App 传入的 useMessageTimestamps 以 message id 为键；视图层经
+    // stepTimestampsFromMessages 转换后 Timeline 的时间类模式才应可用。
+    const msgTs = new Map([["a1", 1_000], ["a2", 3_000]]);
+    render(
+      <TrajectoryView turns={deriveTrajectory(messages)} timestamps={msgTs} messages={messages} />,
+    );
+    expect(screen.getByRole("button", { name: /duration/i })).toHaveProperty("disabled", false);
+    expect(screen.getByRole("button", { name: /actual/i })).toHaveProperty("disabled", false);
+  });
+
   it("filters ledger rows by search hits (data-match only on matches)", () => {
     vi.useFakeTimers();
     render(

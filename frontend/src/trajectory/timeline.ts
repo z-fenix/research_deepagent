@@ -1,5 +1,8 @@
 // Timeline 布局（spec §5.3）：序列模式用序数；耗时/真实时间模式用客户端
 // 捕获的时间戳（键 = assistantKey），缺失 → null（禁用态由组件呈现）。
+// C2（final review）：useMessageTimestamps 以 message id 为键（契约不变），
+// 视图层经 stepTimestampsFromMessages 转换为 assistantKey 键后喂给
+// buildTimeline / timelineHasTimeData —— 两套键在此交汇。
 
 import type { TrajTurn } from "./layout";
 import { assistantKey } from "./rows";
@@ -14,6 +17,40 @@ export type TimelineItem = {
   end: number | null;
   durationMs: number | null;
 };
+
+/**
+ * 把 message-id 键的时间戳捕获转换为 assistantKey 键的 step 时间戳。
+ * 配对规则与 deriveTrajectory 一致：第 k 条 AI 消息创建第 k 个 step
+ * （messages 按序遍历取 AI 消息 id，steps 按 turn/step 序展开，位置对位置）；
+ * 同一 step 首个捕获生效。
+ */
+export function stepTimestampsFromMessages(
+  messages: ReadonlyArray<unknown>,
+  turns: TrajTurn[],
+  timestamps: ReadonlyMap<string, number>,
+): Map<string, number> {
+  const aiIds: string[] = [];
+  for (const msg of messages) {
+    if (typeof msg !== "object" || msg === null) continue;
+    if ((msg as Record<string, unknown>).type !== "ai") continue;
+    const id = (msg as Record<string, unknown>).id;
+    if (typeof id === "string" && id !== "") aiIds.push(id);
+  }
+  const out = new Map<string, number>();
+  let k = 0;
+  for (const turn of turns) {
+    for (const step of turn.steps) {
+      const id = aiIds[k];
+      k += 1;
+      if (id === undefined) break;
+      const captured = timestamps.get(id);
+      if (captured === undefined) continue;
+      const key = assistantKey(turn.turn, step.step);
+      if (!out.has(key)) out.set(key, captured); // 首 capture 优先
+    }
+  }
+  return out;
+}
 
 export function buildTimeline(
   turns: TrajTurn[],

@@ -2,10 +2,14 @@
 // 挂进右栏 trajectory 面板（spec §5.2-5.4）。
 // 选中 timeline 条目 → 按 assistantKey 锚定 Ledger 行滚动定位
 // （Ledger assistant 行带 data-asst-key；简报的占位 querySelector 已替换）。
+// C2（final review）：App 传入的 timestamps 以 message id 为键
+// （useMessageTimestamps 契约不变）；此处经 stepTimestampsFromMessages
+// 转换为 assistantKey 键，Timeline 的时间类模式由此获得数据。
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Message } from "../lib/messages";
 import { flattenTrajectoryRows } from "./rows";
+import { stepTimestampsFromMessages } from "./timeline";
 import { TrajectorySearchIndex } from "./search";
 import { Ledger } from "./Ledger";
 import { Timeline } from "./Timeline";
@@ -19,15 +23,19 @@ export function TrajectoryView(props: {
   timestamps: ReadonlyMap<string, number>;
   messages: Message[];
 }): ReactNode {
-  // messages 仅在 props 契约中透传（App → stream.messages）；索引以派生行为准，
-  // 不解构以避开 noUnusedLocals。
-  const { turns, timestamps } = props;
+  const { turns, timestamps, messages } = props;
   const [mode, setMode] = useState<TimelineMode>("sequence");
   const [selected, setSelected] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [matches, setMatches] = useState<ReadonlySet<string> | null>(null);
   const indexRef = useRef(new TrajectorySearchIndex());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // message id 捕获 → assistantKey 步级时间戳（k 条 AI 消息 = k 个 step）
+  const stepTimestamps = useMemo(
+    () => stepTimestampsFromMessages(messages, turns, timestamps),
+    [messages, turns, timestamps],
+  );
 
   const flatRows = useMemo(
     () =>
@@ -65,7 +73,7 @@ export function TrajectoryView(props: {
       />
       <Timeline
         turns={turns}
-        timestamps={timestamps}
+        timestamps={stepTimestamps}
         mode={mode}
         onModeChange={(next) => {
           setMode(next);

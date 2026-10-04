@@ -34,7 +34,9 @@
   全部 turn / 全部 assistant）；请求头（序号/模型/usage）；搜索命中
   `data-match`。容器高度 0（jsdom/SSR）时全量渲染兜底。
 - Timeline `timeline.ts` + `lib/timestamps.ts`：序列/耗时/真实时间/关 四模式；
-  时间戳 = 消息首见 `Date.now()`（仅实时流有），历史回放 → 时间类模式禁用。
+  时间戳 = 消息首见 `Date.now()`（仅实时流有；线程打开时已存在的消息按历史
+  处理不盖章），视图层经 `stepTimestampsFromMessages` 把 message id 捕获
+  转成 assistantKey 步级键后喂给 Timeline；历史回放 → 时间类模式禁用。
 - 搜索 `search.ts`：小写分词索引，视图层 3s 节流重建。
 
 ## 已知降级（spec §6）
