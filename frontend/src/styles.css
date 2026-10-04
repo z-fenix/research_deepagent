@@ -609,3 +609,14 @@ body { margin: 0; }
 }
 .frame__handle[data-side="sidebar"] { cursor: col-resize; }
 .frame__handle[data-dragging] { background: var(--accent, #4f6ef7); opacity: 0.25; }
+
+/* panel host（task08 右栏面板域） */
+.panel-host { display: flex; flex-direction: column; height: 100%; }
+.panel-host__tabs { display: flex; gap: 2px; padding: 6px 8px 0; border-bottom: 1px solid var(--border, #e3e6ee); }
+.panel-host__tab {
+  border: none; background: transparent; padding: 6px 10px; cursor: pointer;
+  font-size: 13px; color: var(--muted, #6b7280); border-radius: 6px 6px 0 0;
+}
+.panel-host__tab--active { color: var(--fg, #111827); background: var(--surface, #fff); box-shadow: inset 0 -2px 0 var(--accent, #4f6ef7); }
+.panel-host__body { flex: 1; overflow-y: auto; padding: 8px 10px; }
+.panel-host__empty { color: var(--muted, #6b7280); font-size: 13px; padding: 16px 4px; }
