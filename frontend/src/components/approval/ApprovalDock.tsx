@@ -133,12 +133,22 @@ export function ApprovalDock({
     () => new Array(pendingApproval?.actionRequests.length ?? 0).fill(undefined),
   );
   const [signature, setSignature] = useState<string>(() => JSON.stringify(pendingApproval));
+  const [errorSignature, setErrorSignature] = useState<unknown>(null);
 
   // 中断内容变化（新中断到来）时重置已记录的决策——渲染期重置是 React 认可的模式。
   const nextSignature = JSON.stringify(pendingApproval);
   if (nextSignature !== signature) {
     setSignature(nextSignature);
     setDecisions(new Array(pendingApproval?.actionRequests.length ?? 0).fill(undefined));
+  }
+
+  // 提交失败（error 变为非空）时清空已记录的决策，让用户能调整后重新提交，
+  // 否则卡片停留在"已选择"态且 composer 被禁用，用户无法恢复。
+  if (error !== errorSignature) {
+    setErrorSignature(error);
+    if (error != null) {
+      setDecisions(new Array(pendingApproval?.actionRequests.length ?? 0).fill(undefined));
+    }
   }
 
   if (pendingApproval == null || pendingApproval.actionRequests.length === 0) return null;
