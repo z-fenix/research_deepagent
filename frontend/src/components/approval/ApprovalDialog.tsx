@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type {
   ApprovalDecision,
   PendingApproval,
@@ -166,12 +166,46 @@ export function ApprovalDialog({
   }
 
   const title = gate ? GATE_TITLE : SENSITIVE_TITLE;
+  const dialogRef = useRef<HTMLElement>(null);
+  const titleId = "approval-dialog-title";
+
+  // 焦点管理（a11y）：打开即聚焦容器；Tab 循环限制在弹窗内（HITL 必须作答，
+  // 不存在关闭路径），避免键盘用户 Tab 进遮罩后仍在交互的背景内容。
+  useEffect(() => {
+    dialogRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+      const focusables = dialogRef.current?.querySelectorAll<HTMLElement>(
+        'button, textarea, input, [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusables === undefined || focusables.length === 0) return;
+      const first = focusables[0]!;
+      const last = focusables[focusables.length - 1]!;
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || !dialogRef.current?.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   return (
     <div className="approval-overlay" data-testid="approval-dialog">
-      <section className="approval-dialog" role="dialog" aria-modal="true" aria-label="审批">
+      <section
+        ref={dialogRef}
+        className="approval-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+      >
         <header className="approval-dialog__head">
-          <strong>{title}</strong>
+          <strong id={titleId}>{title}</strong>
           <code className="approval-dialog__tool">{request.name}</code>
         </header>
         <pre className="approval-dialog__args">{argsSummary(request.args)}</pre>

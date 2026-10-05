@@ -851,7 +851,7 @@ body { margin: 0; }
   border-radius: 6px;
 }
 
-/* workbench（task08 Task 5：右栏 ApprovalDock + TodoDock 容器） */
+/* workbench（右栏 TodoDock 容器；审批走居中模态 ApprovalDialog） */
 .workbench { display: flex; flex-direction: column; gap: 0.5rem; }
 
 /* trajectory ledger（task08 二期） */

@@ -32,7 +32,7 @@ def request_phase_approval(phase: str, summary: str) -> str:
 ```
 编排者完成 PRD → 汇报摘要 → 调 request_phase_approval("prd", "...")
   → HumanInTheLoopMiddleware 中断（run 挂起，turn 结束）
-  → 前端 ApprovalDock 渲染 respond 文本框
+  → 前端 ApprovalDialog 渲染 respond 文本框
   → 用户输入"同意"或"把 REQ-003 改成…" → Command(resume={"decisions":[…]}) 提交
   → 工具结果 = 用户原文 → 编排者解析 approved/revise
   → 写 Gate Log / 更新 project_state.md / todos → 推进或重做
@@ -103,17 +103,17 @@ docstring 与 `test_gate_tool_triggers_interrupt`。）
 |---|---|---|
 | 中断提取 | `frontend/src/lib/stream.ts:40` `extractPendingApproval` | 接受 snake_case（后端原始）与 camelCase（SDK 别名）双键名；非中断值返回 null |
 | 状态暴露 | `stream.ts:144` | `useAgentStream` 返回 `pendingApproval: {actionRequests, reviewConfigs} \| null` 与 `approvalError` |
-| 卡片渲染 | `frontend/src/components/approval/ApprovalDock.tsx:123` | 按 `allowed_decisions` 分支：全 respond → 门禁卡（标题「阶段门禁」，respond 文本框+提交）；含 approve/reject → 敏感操作卡（批准 / 拒绝+意见输入）；`pendingApproval == null` 不渲染 |
+| 卡片渲染 | `frontend/src/components/approval/ApprovalDialog.tsx:123` | 按 `allowed_decisions` 分支：全 respond → 门禁卡（标题「阶段门禁」，respond 文本框+提交）；含 approve/reject → 敏感操作卡（批准 / 拒绝+意见输入）；`pendingApproval == null` 不渲染 |
 | 决策提交 | `stream.ts:146` `submitApproval` | 决策数组与 actionRequests **顺序一一对应**；经 SDK `stream.submit(null, { command: { resume: { decisions } } })` 走既有 run 通道（POST `/threads/{id}/runs/stream`） |
 | 未决守卫 | `frontend/src/App.tsx:69` | `pendingApproval != null` 时 Composer 传 `disabled`（`frontend/src/components/composer/Composer.tsx:31` 直接拦截提交）——审批未决时用户不能绕过卡片发消息 |
-| 错误态 | `stream.ts:151` | 提交失败（含通道拒绝 Command）经 onError/异常落入 `approvalError` 并在 ApprovalDock 中展示，**不静默吞错** |
+| 错误态 | `stream.ts:151` | 提交失败（含通道拒绝 Command）经 onError/异常落入 `approvalError` 并在 ApprovalDialog 中展示，**不静默吞错** |
 
-注意：`edit` 决策本期不做——ApprovalDock 不渲染 edit 控件（spec §8 defer）。
+注意：`edit` 决策本期不做——ApprovalDialog 不渲染 edit 控件（spec §8 defer）。
 
 ## 6. 拒绝反馈约定
 
 - `reject` 决策**必须带 `message`**（前端强制：拒绝原因输入为空不能提交，
-  `ApprovalDock.tsx` 的 reject 分支）；
+  `ApprovalDialog.tsx` 的 reject 分支）；
 - 编排者提示词要求敏感工具被拒时**如实上报人工裁决与原因、不重试同一
   调用**（prompts.py:93-94）；测试钉住关键词（`tests/test_hitl.py:101`
   `test_orchestrator_prompt_declares_gate_flow`）。
@@ -141,7 +141,7 @@ JSON 决策对象；改动集中在提示词契约（`tests/test_hitl.py` 的 pr
 与前端卡片。
 
 其余扩展：新增敏感工具→在 `_build_interrupt_on()` 加条目；启用 edit 决策
-UI→ApprovalDock 加分支并放开 spec §8 的 defer。
+UI→ApprovalDialog 加分支并放开 spec §8 的 defer。
 
 ## 9. 测试
 
@@ -168,7 +168,7 @@ checkpointer"（实证）；测试经 `build_deep_agent(..., checkpointer=InMemo
 | 用例（文件） | 验证点 |
 |---|---|
 | `stream.test.tsx`：提取与双键名、resume 提交、失败不吞错 | `extractPendingApproval` snake/camel 双形态、`submitApproval` 的 command 负载、`approvalError` |
-| `ApprovalDock.test.tsx`：门禁 respond 卡、敏感 approve/reject 卡、空态、拒绝原因 | 按 allowed_decisions 渲染与决策组装 |
+| `ApprovalDialog.test.tsx`：门禁 respond 卡、敏感 approve/reject 卡、空态、拒绝原因 | 按 allowed_decisions 渲染与决策组装 |
 | `Composer.test.tsx`：disabled 拦截 | 未决守卫的组件半边（接线在 App.tsx） |
 
 ```bash
@@ -183,6 +183,6 @@ uv run python scripts/async_smoke.py   # 冒烟：异步链路 + 门禁往返（
 |---|---|
 | 门禁中断未出现（run 直接跑完或报错） | ① `interrupt_on` 是否仍含 `request_phase_approval`（agent.py:177，`test_interrupt_on_includes_sensitive_tools` 邻近配置断言可快速复跑）；② 工具名大小写/改名（`GATE_TOOL` 常量与 tools.py 注册名必须一致）；③ pencli 条目是动态名，降级模式下本就没有；④ 模型没调门禁工具——查提示词流程第 2 步是否被改动 |
 | 恢复失败 / 恢复后仍中断 | ① checkpointer 缺失：裸图 `Command(resume=...)` 必抛错（生产靠平台注入；本地复现用 `build_deep_agent(checkpointer=InMemorySaver())`）；② `thread_id` 不一致：resume 必须发到产生中断的同一 thread；③ command 形态：`{"resume": {"decisions": [...]}}`，决策数组与 action_requests 顺序一一对应、type 拼写精确（respond/approve/reject） |
-| 审批卡不渲染 | ① `extractPendingApproval` 返回 null：中断 value 缺 `action_requests`/`actionRequests`（双键名兼容见 stream.ts:40），或 requests 数组为空；② `pendingApproval` 未传到 `ApprovalDock`（App.tsx 接线）；③ 卡片在 `actionRequests.length === 0` 时也不渲染（属预期） |
+| 审批卡不渲染 | ① `extractPendingApproval` 返回 null：中断 value 缺 `action_requests`/`actionRequests`（双键名兼容见 stream.ts:40），或 requests 数组为空；② `pendingApproval` 未传到 `ApprovalDialog`（App.tsx 接线）；③ 卡片在 `actionRequests.length === 0` 时也不渲染（属预期） |
 | 提交审批后前端报错 | `approvalError` 有展示即通道拒绝——按 §7 第三行的冒烟结论定位：确认 agentseek 版本接受 `command.resume` 负载，或决策数组长度与 action_requests 不匹配 |
 | 门禁通过但编排者按 revise 处理（或反之） | 解析属模型行为：检查提示词第 3 步关键词表与否定语义说明是否被改动（契约测试 `test_orchestrator_prompt_declares_gate_flow` 失败即漂移）；Gate Log 中核对实际收到的原文 |
