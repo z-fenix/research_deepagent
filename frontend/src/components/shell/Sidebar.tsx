@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import type { ThreadSummary } from "../../lib/threads";
 import { sessionLink } from "../../lib/stream";
 
@@ -54,7 +54,7 @@ function SessionItem(props: {
         <button
           type="button"
           className="sidebar__item-action"
-          aria-label="Copy session link"
+          aria-label={props.copied ? "Session link copied" : "Copy session link"}
           title={props.copied ? "Copied" : "Copy session link"}
           onClick={() => props.onCopy(thread.threadId)}
         >
@@ -76,6 +76,7 @@ function SessionItem(props: {
 
 export default function Sidebar(props: SidebarProps): ReactNode {
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function copySession(threadId: string) {
     const url = sessionLink(threadId);
@@ -83,7 +84,12 @@ export default function Sidebar(props: SidebarProps): ReactNode {
     try {
       await navigator.clipboard.writeText(url);
       setCopiedId(threadId);
-      setTimeout(() => setCopiedId((current) => (current === threadId ? null : current)), 1500);
+      // 竞态防护：1.5s 内重复复制时清掉上一个计时器，避免 ✓ 提前消失
+      if (copiedTimer.current !== null) clearTimeout(copiedTimer.current);
+      copiedTimer.current = setTimeout(
+        () => setCopiedId((current) => (current === threadId ? null : current)),
+        1500,
+      );
     } catch {
       /* clipboard unavailable — keep the row usable */
     }

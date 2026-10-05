@@ -631,11 +631,11 @@ body { margin: 0; }
   display: flex;
   gap: 0.1rem;
   flex-shrink: 0;
-  opacity: 0;
-  transition: opacity 0.12s ease;
+  visibility: hidden;
+  transition: opacity 0.12s ease, visibility 0.12s ease;
 }
 .sidebar__item:hover .sidebar__item-actions,
-.sidebar__item:focus-within .sidebar__item-actions { opacity: 1; }
+.sidebar__item:focus-within .sidebar__item-actions { opacity: 1; visibility: visible; }
 .sidebar__item-action {
   border: 0;
   border-radius: var(--app-radius-sm);
