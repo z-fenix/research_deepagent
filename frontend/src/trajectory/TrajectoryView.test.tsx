@@ -16,50 +16,30 @@ const messages: Message[] = [
 const renderView = (timestamps: ReadonlyMap<string, number> = new Map()) =>
   render(<TrajectoryView turns={deriveTrajectory(messages)} timestamps={timestamps} messages={messages} />);
 
+const widthPct = (el: Element): number => {
+  const m = (el.getAttribute("style") ?? "").match(/width:\s*([\d.]+)%/);
+  return m === null ? NaN : Number.parseFloat(m[1]!);
+};
+
 describe("TrajectoryView", () => {
   afterEach(() => {
     cleanup();
     vi.useRealTimers();
   });
 
-  it("shows the three filter checkboxes checked plus the search box", () => {
+  it("shows the three reference toggle buttons with initial pressed state plus the search box", () => {
     renderView();
-    for (const name of ["Duration", "Turns", "Calls"]) {
-      expect(screen.getByRole("checkbox", { name })).toHaveProperty("checked", true);
-    }
+    expect(screen.getByRole("toolbar", { name: "Trajectory toolbar" })).toBeTruthy();
+    // Duration 默认按下（按真实耗时定宽）；Turns/Calls 默认未按下（未折叠）
+    expect(screen.getByRole("button", { name: /Duration/ }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: /Turns/ }).getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByRole("button", { name: /Calls/ }).getAttribute("aria-pressed")).toBe("false");
     expect(screen.getByRole("searchbox")).toBeTruthy();
-    expect(screen.getByText("step one body")).toBeTruthy();
   });
 
-  it("unchecking Turns hides turn header rows but keeps assistant rows", () => {
-    renderView();
-    expect(screen.getByText("Turn 0")).toBeTruthy();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Turns" }));
-    expect(screen.queryByText("Turn 0")).toBeNull();
-    expect(screen.queryByText("research query")).toBeNull();
-    expect(screen.getByText("step one body")).toBeTruthy();
-  });
-
-  it("unchecking Calls hides tool rows but keeps assistant rows", () => {
-    renderView();
-    expect(screen.getByText("tavily_search")).toBeTruthy();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Calls" }));
-    expect(screen.queryByText("tavily_search")).toBeNull();
-    expect(screen.getByText("step one body")).toBeTruthy();
-  });
-
-  it("renders the duration bar when Duration is checked and hides it when unchecked", () => {
-    renderView();
-    const bar = document.querySelector(".duration-bar");
-    expect(bar).toBeTruthy();
-    expect(bar!.children.length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole("checkbox", { name: "Duration" }));
-    expect(document.querySelector(".duration-bar")).toBeNull();
-  });
-
-  it("builds duration segments from message-id captures converted to step keys (C2 end-to-end)", () => {
+  it("keeps the duration bar always visible; Duration press toggles duration weighting (C2 end-to-end)", () => {
     // 回归：App 传入的 useMessageTimestamps 以 message id 为键；视图层经
-    // stepTimestampsFromMessages 转换后 duration 分段才应携带真实耗时。
+    // stepTimestampsFromMessages 转换后 Duration 按下才应按真实耗时定宽。
     const threeSteps: Message[] = [
       { id: "h1", type: "human", content: "q" },
       { id: "a1", type: "ai", content: "one" },
@@ -67,26 +47,57 @@ describe("TrajectoryView", () => {
       { id: "a3", type: "ai", content: "three" },
     ];
     const msgTs = new Map([["a1", 1_000], ["a2", 2_000], ["a3", 4_000]]);
-    render(
-      <TrajectoryView turns={deriveTrajectory(threeSteps)} timestamps={msgTs} messages={threeSteps} />,
-    );
+    render(<TrajectoryView turns={deriveTrajectory(threeSteps)} timestamps={msgTs} messages={threeSteps} />);
     const segments = document.querySelectorAll(".duration-bar__seg");
     expect(segments.length).toBe(3);
     expect(segments[0]!.getAttribute("title")).toBe("T0S1 1.0s");
-    // 有时间戳 → 按 durationMs 占比（1000ms vs 2000ms 前段更窄）
-    const widthPct = (el: Element): number => {
-      const m = (el.getAttribute("style") ?? "").match(/width:\s*([\d.]+)%/);
-      return m === null ? NaN : Number.parseFloat(m[1]!);
-    };
+    // 按下：按 durationMs 占比（1000ms vs 2000ms 前段更窄）
     expect(widthPct(segments[0]!)).toBeLessThan(widthPct(segments[1]!));
+    // 取消按下：全部等宽（分段条仍可见）
+    fireEvent.click(screen.getByRole("button", { name: /Duration/ }));
+    expect(screen.getByRole("button", { name: /Duration/ }).getAttribute("aria-pressed")).toBe("false");
+    const after = document.querySelectorAll(".duration-bar__seg");
+    expect(after.length).toBe(3);
+    expect(widthPct(after[0]!)).toBe(widthPct(after[1]!));
   });
 
-  it("degrades to equal-width segments without timestamps (spec §6)", () => {
+  it("degrades to equal widths without timestamps even when Duration is pressed (spec §6)", () => {
     renderView();
     const segments = Array.from(document.querySelectorAll(".duration-bar__seg"));
     expect(segments.length).toBe(2);
-    const widths = segments.map((s) => s.getAttribute("style"));
-    expect(widths[0]).toBe(widths[1]);
+    expect(widthPct(segments[0]!)).toBe(widthPct(segments[1]!));
+  });
+
+  it("Turns button folds all turn groups and expands back", () => {
+    renderView();
+    const turnsButton = screen.getByRole("button", { name: /Turns/ });
+    expect(turnsButton.getAttribute("title")).toBe("Collapse turns");
+    expect(screen.getByText("step one body")).toBeTruthy();
+    fireEvent.click(turnsButton);
+    expect(turnsButton.getAttribute("aria-pressed")).toBe("true");
+    expect(turnsButton.getAttribute("title")).toBe("Expand turns");
+    // 折叠后仅剩 turn 头行（含 human prompt），assistant/tool 行隐藏
+    expect(screen.queryByText("step one body")).toBeNull();
+    expect(screen.queryByText("tavily_search")).toBeNull();
+    expect(screen.getByText(/Turn 0/)).toBeTruthy();
+    fireEvent.click(turnsButton);
+    expect(turnsButton.getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByText("step one body")).toBeTruthy();
+  });
+
+  it("Calls button folds tool call rows under assistants and expands back", () => {
+    renderView();
+    const callsButton = screen.getByRole("button", { name: /Calls/ });
+    expect(callsButton.getAttribute("title")).toBe("Collapse calls");
+    expect(screen.getByText("tavily_search")).toBeTruthy();
+    fireEvent.click(callsButton);
+    expect(callsButton.getAttribute("aria-pressed")).toBe("true");
+    expect(callsButton.getAttribute("title")).toBe("Expand calls");
+    expect(screen.queryByText("tavily_search")).toBeNull();
+    // assistant 行保留（折叠为 summary）
+    expect(screen.getByText("step one body")).toBeTruthy();
+    fireEvent.click(callsButton);
+    expect(screen.getByText("tavily_search")).toBeTruthy();
   });
 
   it("filters ledger rows by search hits (data-match only on matches)", () => {

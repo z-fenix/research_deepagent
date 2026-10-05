@@ -304,14 +304,14 @@ describe("App", () => {
     // 默认 Chat 激活，Trajectory 内容不可见
     expect(chatTab.getAttribute("aria-selected")).toBe("true");
     expect(trajectoryTab.getAttribute("aria-selected")).toBe("false");
-    expect(screen.queryByRole("checkbox", { name: "Duration" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Duration/ })).toBeNull();
     expect(screen.getByText("IBM published a LangGraph guide.")).toBeTruthy();
 
-    // 点 Trajectory → TrajectoryView 出现（Duration checkbox 为其标志）
+    // 点 Trajectory → TrajectoryView 出现（Duration 开关钮为其标志）
     fireEvent.click(trajectoryTab);
     expect(trajectoryTab.getAttribute("aria-selected")).toBe("true");
     expect(chatTab.getAttribute("aria-selected")).toBe("false");
-    expect(screen.getByRole("checkbox", { name: "Duration" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Duration/ })).toBeTruthy();
     // 右栏只剩 Sub-agents / Workbench 两 tab（Trajectory 面板已移除）
     const rightbarTabs = within(
       document.querySelector(".panel-host") as HTMLElement,
@@ -321,7 +321,7 @@ describe("App", () => {
     // 切回 Chat：消息列表还在（流状态未因 tab 切换丢失）
     fireEvent.click(chatTab);
     expect(screen.getByText("IBM published a LangGraph guide.")).toBeTruthy();
-    expect(screen.queryByRole("checkbox", { name: "Duration" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Duration/ })).toBeNull();
   });
 
   it("keeps composer approval-disabled across center tab switches (Review Focus 2)", () => {

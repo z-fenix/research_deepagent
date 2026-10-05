@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { deriveTrajectory, type Message } from "./layout";
 import { Ledger } from "./Ledger";
 
@@ -10,13 +10,26 @@ const messages: Message[] = [
   { id: "a2", type: "ai", content: "done" },
 ];
 
+type LedgerProps = Parameters<typeof Ledger>[0];
+
+const renderLedger = (overrides: Partial<LedgerProps> = {}) =>
+  render(
+    <Ledger
+      turns={deriveTrajectory(messages)}
+      collapsedTurns={new Set()}
+      collapsedAssistants={new Set()}
+      onToggleTurn={() => {}}
+      {...overrides}
+    />,
+  );
+
 describe("Ledger", () => {
   afterEach(() => {
     cleanup();
   });
 
   it("renders rows and the delegation report sub-block", () => {
-    render(<Ledger turns={deriveTrajectory(messages)} />);
+    renderLedger();
     expect(screen.getByText("q1")).toBeTruthy();
     expect(screen.getByText("step one")).toBeTruthy();
     expect(screen.getByText(/task/)).toBeTruthy();
@@ -30,27 +43,40 @@ describe("Ledger", () => {
       { id: "t2", type: "tool", tool_call_id: "c1", content: "{not json" },
       ...messages.slice(3),
     ];
-    render(<Ledger turns={deriveTrajectory(malformed)} />);
+    render(
+      <Ledger
+        turns={deriveTrajectory(malformed)}
+        collapsedTurns={new Set()}
+        collapsedAssistants={new Set()}
+        onToggleTurn={() => {}}
+      />,
+    );
     fireEvent.click(screen.getByText(/phase_report/));
     expect(screen.getByText("(unparsable report)")).toBeTruthy();
   });
 
-  it("toggles all turns collapsed and back", () => {
-    render(<Ledger turns={deriveTrajectory(messages)} />);
-    const all = screen.getByTestId("collapse-all-turns");
-    fireEvent.click(all);
-    expect(screen.getAllByText(/Turn 0/).length).toBeGreaterThan(0);
-    fireEvent.click(all);
-    expect(screen.getByText("step one")).toBeTruthy();
+  it("renders from controlled collapse state (folded turn hides its rows)", () => {
+    // 折叠状态已上提到 TrajectoryView（工具栏 Turns/Calls 拥有全部开合），
+    // Ledger 变为受控渲染；单 turn 开合经 onToggleTurn 回调。
+    renderLedger({ collapsedTurns: new Set([0]) });
+    expect(screen.getByText(/Turn 0/)).toBeTruthy();
+    expect(screen.queryByText("step one")).toBeNull();
+  });
+
+  it("invokes onToggleTurn when a turn header is clicked", () => {
+    const onToggleTurn = vi.fn();
+    renderLedger({ onToggleTurn });
+    fireEvent.click(screen.getByText(/Turn 0/));
+    expect(onToggleTurn).toHaveBeenCalledWith(0);
   });
 
   it("marks search-matched rows with data-match", () => {
-    render(<Ledger turns={deriveTrajectory(messages)} searchMatches={new Set(["0:1"])} />);
+    renderLedger({ searchMatches: new Set(["0:1"]) });
     expect(document.querySelector('[data-match="true"]')).toBeTruthy();
   });
 
   it("renders visual role badges without changing keys or matching", () => {
-    render(<Ledger turns={deriveTrajectory(messages)} />);
+    renderLedger();
     expect(document.querySelector(".badge--turn")!.textContent).toBe("T0");
     expect(document.querySelector(".badge--user")!.textContent).toBe("USER");
     expect(document.querySelector(".badge--assistant")!.textContent).toBe("AI");

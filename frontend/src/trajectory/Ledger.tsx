@@ -1,16 +1,11 @@
 // 虚拟化 Ledger：@tanstack/react-virtual 变高行；容器高度 0（jsdom/SSR）
-// 时全量渲染兜底。折叠状态机与参照 TrajectoryView 一致（collapsedTurns/
-// collapsedAssistants 集合 + 全部开关，TrajectoryView.tsx:462-502）。
+// 时全量渲染兜底。折叠状态受控：collapsedTurns/collapsedAssistants 由
+// TrajectoryView 持有（工具栏 Turns/Calls 开关 + 行内 turn 头开合），
+// 单 turn 开合经 onToggleTurn 回调上抛。
 
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useMemo, useRef, useState, type ReactNode } from "react";
-import {
-  collapsibleTurnIds,
-  cumulativeUsage,
-  parseDelegationReport,
-  type TrajToolBlock,
-  type TrajTurn,
-} from "./layout";
+import { parseDelegationReport, type TrajToolBlock, type TrajTurn } from "./layout";
 import { assistantKey, flattenTrajectoryRows } from "./rows";
 
 function usageText(usage: { input?: number; output?: number } | null): string {
@@ -63,24 +58,17 @@ function ToolRow({ block }: { block: TrajToolBlock }): ReactNode {
 export function Ledger(props: {
   turns: TrajTurn[];
   searchMatches?: ReadonlySet<string> | null;
-  showTurns?: boolean;
-  showCalls?: boolean;
+  collapsedTurns: ReadonlySet<number>;
+  collapsedAssistants: ReadonlySet<string>;
+  onToggleTurn(turn: number): void;
 }): ReactNode {
-  const { turns, searchMatches, showTurns = true, showCalls = true } = props;
-  const [collapsedTurns, setCollapsedTurns] = useState<ReadonlySet<number>>(new Set());
-  const [collapsedAssistants, setCollapsedAssistants] = useState<ReadonlySet<string>>(new Set());
+  const { turns, searchMatches, collapsedTurns, collapsedAssistants, onToggleTurn } = props;
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const rows = useMemo(
-    () =>
-      flattenTrajectoryRows(turns, collapsedTurns, collapsedAssistants, {
-        includeTurnHeaders: showTurns,
-        includeToolRows: showCalls,
-      }),
-    [turns, collapsedTurns, collapsedAssistants, showTurns, showCalls],
+    () => flattenTrajectoryRows(turns, collapsedTurns, collapsedAssistants),
+    [turns, collapsedTurns, collapsedAssistants],
   );
-  const collapsibleTurns = useMemo(() => collapsibleTurnIds(turns), [turns]);
-  const totalUsage = useMemo(() => cumulativeUsage(turns), [turns]);
 
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -95,41 +83,8 @@ export function Ledger(props: {
   const useWindow = scrollRef.current !== null && scrollRef.current.clientHeight > 0;
   const windowRows = useWindow ? virtualizer.getVirtualItems() : rows.map((_, i) => ({ index: i, key: rows[i]!.key, start: 0, size: 0 }));
 
-  const allTurnsCollapsed = collapsibleTurns.length > 0 && collapsibleTurns.every((t) => collapsedTurns.has(t));
-  const collapsibleAssistantKeys: string[] = [];
-  for (const turn of turns) {
-    for (const step of turn.steps) {
-      if (step.cell.toolBlocks.length > 0) collapsibleAssistantKeys.push(assistantKey(turn.turn, step.step));
-    }
-  }
-  const allAssistantsCollapsed = collapsibleAssistantKeys.length > 0 && collapsibleAssistantKeys.every((k) => collapsedAssistants.has(k));
-
-  const toggleAllTurns = () => {
-    setCollapsedTurns(allTurnsCollapsed ? new Set() : new Set(collapsibleTurns));
-  };
-  const toggleAllAssistants = () => {
-    setCollapsedAssistants(allAssistantsCollapsed ? new Set() : new Set(collapsibleAssistantKeys));
-  };
-  const toggleTurn = (turn: number) => {
-    setCollapsedTurns((current) => {
-      const next = new Set(current);
-      if (next.has(turn)) next.delete(turn);
-      else next.add(turn);
-      return next;
-    });
-  };
-
   return (
     <div className="ledger">
-      <div className="ledger__controls">
-        <button type="button" data-testid="collapse-all-turns" onClick={toggleAllTurns}>
-          {allTurnsCollapsed ? "Expand all turns" : "Collapse all turns"}
-        </button>
-        <button type="button" data-testid="collapse-all-assistants" onClick={toggleAllAssistants}>
-          {allAssistantsCollapsed ? "Expand all steps" : "Collapse all steps"}
-        </button>
-        {totalUsage !== null && <span className="ledger__total-usage">tokens {usageText(totalUsage)}</span>}
-      </div>
       <div className="ledger__scroll" ref={scrollRef} style={{ height: "100%", overflowY: "auto" }}>
         <div style={{ height: useWindow ? virtualizer.getTotalSize() : undefined, position: "relative" }}>
           {windowRows.map((item) => {
@@ -151,7 +106,7 @@ export function Ledger(props: {
                 style={style}
               >
                 {row.kind === "turn-header" && (
-                  <button type="button" className="ledger__turn" onClick={() => toggleTurn(row.turn)}>
+                  <button type="button" className="ledger__turn" onClick={() => onToggleTurn(row.turn)}>
                     <span className="badge badge--turn">T{row.turn}</span>
                     <span className="ledger__turn-label">Turn {row.turn}</span>
                     <span className="badge badge--user">USER</span>

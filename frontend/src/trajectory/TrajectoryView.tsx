@@ -1,19 +1,22 @@
-// Trajectory 组合视图：工具栏（Duration/Turns/Calls 三 checkbox + 右侧搜索框，
-// 3s 节流索引）+ Duration 堆叠分段条 + Ledger（task09 Task 4 重做）。
-// Timeline 组件不再挂载——其模式语义并入 Duration checkbox + 分段条
-// （组件保留导出与组件级测试）；分段数据沿用 buildTimeline（spec §6 降级：
-// 无时间戳按序数均布，有则按 durationMs 占比）。
+// Trajectory 组合视图：工具栏（Duration/Turns/Calls 三开关钮 + 右侧搜索框，
+// 3s 节流索引）+ Duration 堆叠分段条 + Ledger（task09 Task 4，参照
+// TrajectoryToolbar 语义校正：三者为 toggle button，非行过滤器）。
+// - Duration：aria-pressed 开关，按下 → 分段按 durationMs 占比定宽，
+//   未按下 → 全部等宽；分段条常驻（buildTimeline，spec §6 降级不变）。
+// - Turns/Calls：全部折叠开关，aria-pressed = 全折叠态；折叠状态
+//   （collapsedTurns/collapsedAssistants）由此持有并受控传入 Ledger。
+// Timeline 组件不再挂载——组件保留导出与组件级测试。
 // C2（final review）：App 传入的 timestamps 以 message id 为键
 // （useMessageTimestamps 契约不变）；此处经 stepTimestampsFromMessages
 // 转换为 assistantKey 键，时间类派生由此获得数据。
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Message } from "../lib/messages";
+import { collapsibleTurnIds, type TrajTurn } from "./layout";
 import { assistantKey, flattenTrajectoryRows } from "./rows";
 import { buildTimeline, stepTimestampsFromMessages, timelineHasTimeData } from "./timeline";
 import { TrajectorySearchIndex } from "./search";
 import { Ledger } from "./Ledger";
-import type { TrajTurn } from "./layout";
 
 const SEARCH_THROTTLE_MS = 3000;
 
@@ -27,9 +30,9 @@ export function TrajectoryView(props: {
   messages: Message[];
 }): ReactNode {
   const { turns, timestamps, messages } = props;
-  const [showDuration, setShowDuration] = useState(true);
-  const [showTurns, setShowTurns] = useState(true);
-  const [showCalls, setShowCalls] = useState(true);
+  const [durationPressed, setDurationPressed] = useState(true);
+  const [collapsedTurns, setCollapsedTurns] = useState<ReadonlySet<number>>(new Set());
+  const [collapsedAssistants, setCollapsedAssistants] = useState<ReadonlySet<string>>(new Set());
   const [query, setQuery] = useState("");
   const [matches, setMatches] = useState<ReadonlySet<string> | null>(null);
   const indexRef = useRef(new TrajectorySearchIndex());
@@ -42,6 +45,38 @@ export function TrajectoryView(props: {
   );
   const hasTimeData = useMemo(() => timelineHasTimeData(turns, stepTimestamps), [turns, stepTimestamps]);
 
+  // 可折叠集合（与原 Ledger 派生一致）：turn 全体 / 含 tool 块的 assistant
+  const collapsibleTurns = useMemo(() => collapsibleTurnIds(turns), [turns]);
+  const collapsibleAssistantKeys = useMemo(() => {
+    const keys: string[] = [];
+    for (const turn of turns) {
+      for (const step of turn.steps) {
+        if (step.cell.toolBlocks.length > 0) keys.push(assistantKey(turn.turn, step.step));
+      }
+    }
+    return keys;
+  }, [turns]);
+  const allTurnsCollapsed =
+    collapsibleTurns.length > 0 && collapsibleTurns.every((t) => collapsedTurns.has(t));
+  const allAssistantsCollapsed =
+    collapsibleAssistantKeys.length > 0 &&
+    collapsibleAssistantKeys.every((k) => collapsedAssistants.has(k));
+
+  const toggleAllTurns = () => {
+    setCollapsedTurns(allTurnsCollapsed ? new Set() : new Set(collapsibleTurns));
+  };
+  const toggleAllAssistants = () => {
+    setCollapsedAssistants(allAssistantsCollapsed ? new Set() : new Set(collapsibleAssistantKeys));
+  };
+  const toggleTurn = (turn: number) => {
+    setCollapsedTurns((current) => {
+      const next = new Set(current);
+      if (next.has(turn)) next.delete(turn);
+      else next.add(turn);
+      return next;
+    });
+  };
+
   // 段色规则：step 含 tool 块 → green（tools），否则 blue（model）
   const toolStepKeys = useMemo(() => {
     const keys = new Set<string>();
@@ -53,17 +88,16 @@ export function TrajectoryView(props: {
     return keys;
   }, [turns]);
 
-  // Duration 分段（spec §6）：耗时模式按 durationMs 占比定宽，
-  // 缺失耗时（末 step / 无时间戳）回退均分；无时间戳整体退化为序数均布。
+  // Duration 分段（spec §6）：按下且有时间戳 → 按 durationMs 占比定宽
+  // （缺失耗时以非零段均值近似）；否则全部等宽（无时间戳降级同一公式）。
   const segments = useMemo(() => {
-    if (!showDuration) return [];
     const items = buildTimeline(turns, hasTimeData ? "duration" : "sequence", stepTimestamps);
     const totalMs = items.reduce((acc, it) => acc + (it.durationMs ?? 0), 0);
     const equalPct = 100 / Math.max(1, items.length);
     const averageMs = totalMs / Math.max(1, items.filter((it) => it.durationMs !== null).length);
+    const proportional = durationPressed && hasTimeData && totalMs > 0;
     return items.map((it) => {
-      const weightMs = it.durationMs ?? (hasTimeData && totalMs > 0 ? averageMs : 0);
-      const widthPct = hasTimeData && totalMs > 0 ? (weightMs / totalMs) * 100 : equalPct;
+      const widthPct = proportional ? ((it.durationMs ?? averageMs) / totalMs) * 100 : equalPct;
       return {
         key: it.key,
         title: `${it.label}${it.durationMs !== null ? ` ${formatDuration(it.durationMs)}` : ""}`,
@@ -71,7 +105,7 @@ export function TrajectoryView(props: {
         widthPct,
       };
     });
-  }, [showDuration, turns, hasTimeData, stepTimestamps, toolStepKeys]);
+  }, [durationPressed, turns, hasTimeData, stepTimestamps, toolStepKeys]);
 
   const flatRows = useMemo(
     () =>
@@ -99,33 +133,40 @@ export function TrajectoryView(props: {
 
   return (
     <div className="trajectory-view">
-      <div className="trajectory-view__toolbar">
-        <div className="trajectory-view__filters">
-          <label className="trajectory-view__filter">
-            <input
-              type="checkbox"
-              checked={showDuration}
-              onChange={(e) => setShowDuration(e.target.checked)}
-            />
-            Duration
-          </label>
-          <label className="trajectory-view__filter">
-            <input
-              type="checkbox"
-              checked={showTurns}
-              onChange={(e) => setShowTurns(e.target.checked)}
-            />
-            Turns
-          </label>
-          <label className="trajectory-view__filter">
-            <input
-              type="checkbox"
-              checked={showCalls}
-              onChange={(e) => setShowCalls(e.target.checked)}
-            />
-            Calls
-          </label>
-        </div>
+      <div className="trajectory-view__toolbar" role="toolbar" aria-label="Trajectory toolbar">
+        <button
+          type="button"
+          className="trajectory-view__toggle"
+          aria-pressed={durationPressed}
+          data-pressed={durationPressed || undefined}
+          title={durationPressed ? "Use equal widths" : "Use actual durations"}
+          onClick={() => setDurationPressed((v) => !v)}
+        >
+          <span aria-hidden="true" className="trajectory-view__toggle-icon">⏱</span>
+          Duration
+        </button>
+        <button
+          type="button"
+          className="trajectory-view__toggle"
+          aria-pressed={allTurnsCollapsed}
+          data-pressed={allTurnsCollapsed || undefined}
+          title={allTurnsCollapsed ? "Expand turns" : "Collapse turns"}
+          onClick={toggleAllTurns}
+        >
+          <span aria-hidden="true">{allTurnsCollapsed ? "⊞" : "⊟"}</span>
+          Turns
+        </button>
+        <button
+          type="button"
+          className="trajectory-view__toggle"
+          aria-pressed={allAssistantsCollapsed}
+          data-pressed={allAssistantsCollapsed || undefined}
+          title={allAssistantsCollapsed ? "Expand calls" : "Collapse calls"}
+          onClick={toggleAllAssistants}
+        >
+          <span aria-hidden="true">{allAssistantsCollapsed ? "⊞" : "⊟"}</span>
+          Calls
+        </button>
         <input
           type="search"
           role="searchbox"
@@ -135,7 +176,8 @@ export function TrajectoryView(props: {
           onChange={(e) => setQuery(e.target.value)}
         />
       </div>
-      {showDuration && (
+      {/* 分段条常驻（Duration 只影响定宽）；零分段（无 turn）时隐藏避免空灰条 */}
+      {segments.length > 0 && (
         <div className="duration-bar" data-testid="duration-bar">
           {segments.map((seg) => (
             <div
@@ -147,7 +189,13 @@ export function TrajectoryView(props: {
           ))}
         </div>
       )}
-      <Ledger turns={turns} searchMatches={matches} showTurns={showTurns} showCalls={showCalls} />
+      <Ledger
+        turns={turns}
+        searchMatches={matches}
+        collapsedTurns={collapsedTurns}
+        collapsedAssistants={collapsedAssistants}
+        onToggleTurn={toggleTurn}
+      />
     </div>
   );
 }

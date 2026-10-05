@@ -71,20 +71,29 @@ Header → tabs → （Chat：MessageList/ActivityCard ‖ Trajectory：Trajecto
 
 ### 组合视图 `TrajectoryView`（task09 Task 4）
 
-Header 下方工具栏 = 左侧三 checkbox + 右侧搜索框（3s 节流索引）：
+Header 下方工具栏 = 左侧三 toggle 开关钮（参照 TrajectoryToolbar 语义，非
+行过滤器）+ 右侧搜索框（3s 节流索引）：
 
-- **Duration**（默认开）：下方堆叠分段条，每 step 一段。
+- **Duration**（默认按下，`aria-pressed`）：下方堆叠分段条常驻，每 step
+  一段；按下 → 按 recorded duration 定宽，取消 → 全部等宽
+  （title 在 "Use equal widths" / "Use actual durations" 间翻转）。
   - 段色：蓝 `duration-bar__seg--model` = 纯模型步；绿
     `duration-bar__seg--tools` = 含 tool 调用的 step。
-  - 定宽：有真实时间戳（仅实时流捕获，见 Timeline 条目）按
-    `durationMs` 占比分宽；无时间戳整体退化为序数等分。
+  - 有真实时间戳（仅实时流捕获，见 Timeline 条目）且按下时按
+    `durationMs` 占比分宽；无时间戳退化为序数等分（同一等宽公式）。
   - 末 step 无结束点 → 以其余 step 的均值宽度近似（`averageMs` 回退）。
   - hover title：`Step N … 1.2s`（formatDuration，≥1s 用 s，否则 ms）。
-- **Turns**（默认开）：Ledger 显示 turn 头行。
-- **Calls**（默认开）：Ledger 显示 tool 行。
-- Ledger 行内角色徽章：`USER` / `AI` / `TOOL` / `T{turn}`（turn 头）。
+- **Turns**：全部 turn 折叠/展开开关（`aria-pressed` = 全折叠态，icon
+  ⊟/⊞，title "Collapse turns"/"Expand turns"）；折叠后仅剩 turn 头行。
+- **Calls**：全部 tool call 行折叠/展开开关（折叠 assistant 行为 summary，
+  tool 行隐藏；title "Collapse calls"/"Expand calls"）。
+- 折叠状态（`collapsedTurns`/`collapsedAssistants`）由 TrajectoryView 持有
+  并受控传入 Ledger（原 ledger__controls 全部开合按钮与 tokens 统计移除，
+  工具栏拥有该职责）；行内 turn 头点击仍可单开合（onToggleTurn 回调）。
+- turn 头行 / tool 行 / 角色徽章始终渲染：`USER` / `AI` / `TOOL` /
+  `T{turn}`（turn 头）。
 
-Timeline 组件不再挂载——其模式语义并入 Duration checkbox + 分段条
+Timeline 组件不再挂载——其模式语义并入 Duration 开关 + 分段条
 （组件保留导出与组件级测试）；分段数据沿用 buildTimeline。
 
 ### 数据层
