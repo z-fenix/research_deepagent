@@ -878,3 +878,34 @@ body { margin: 0; }
   cursor: pointer; font-size: 10px; padding: 1px 4px; border-radius: 4px; color: var(--muted, #6b7280);
 }
 .timeline__item--selected { color: var(--fg, #111827); border-color: var(--accent, #4f6ef7); box-shadow: 0 0 0 1px var(--accent, #4f6ef7); }
+
+/* trajectory 工具栏（task09 Task 4：三 checkbox + 右侧搜索框） */
+.trajectory-view__toolbar { display: flex; align-items: center; gap: 10px; }
+.trajectory-view__filters { display: flex; align-items: center; gap: 12px; }
+.trajectory-view__filter {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; color: var(--muted, #6b7280); cursor: pointer; user-select: none;
+}
+.trajectory-view__toolbar .trajectory-view__search { margin-left: auto; width: 220px; }
+
+/* Duration 堆叠分段条（task09 Task 4）：段间隙由灰底容器承担；段高 14px */
+.duration-bar {
+  display: flex; gap: 2px; height: 14px;
+  background: var(--surface-2, #eef0f5); border-radius: 4px; overflow: hidden;
+}
+.duration-bar__seg { border-radius: 3px; min-width: 2px; }
+.duration-bar__seg--tools { background: #22c55e; }
+.duration-bar__seg--model { background: #4f6ef7; }
+
+/* Ledger role badges（task09 Task 4）：仅视觉 span，muted 且按类区分 */
+.badge {
+  display: inline-flex; align-items: center; flex-shrink: 0;
+  padding: 0 6px; border-radius: 999px;
+  font-size: 10px; font-weight: 600; line-height: 14px; letter-spacing: 0.02em;
+}
+.badge--turn { background: #eef2ff; color: #4338ca; }
+.badge--assistant { background: #e0f2fe; color: #0369a1; }
+.badge--tool { background: #dcfce7; color: #15803d; }
+.badge--user { background: #f1f5f9; color: #475569; }
+.ledger__row--turn-header button { display: flex; align-items: center; gap: 6px; text-align: left; }
+.ledger__assistant { display: flex; align-items: baseline; gap: 6px; }

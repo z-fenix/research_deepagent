@@ -19,25 +19,38 @@ export function assistantKey(turn: number, step: number): string {
   return `${turn}:${step}`;
 }
 
+/** 行过滤选项（task09 Task 4）：Turns/Calls checkbox 的纯函数投影；缺省全 true（向后兼容）。 */
+export type FlattenTrajectoryRowsOptions = {
+  includeTurnHeaders?: boolean;
+  includeToolRows?: boolean;
+};
+
 export function flattenTrajectoryRows(
   turns: TrajTurn[],
   collapsedTurns: ReadonlySet<number>,
   collapsedAssistants: ReadonlySet<string>,
+  options?: FlattenTrajectoryRowsOptions,
 ): LedgerRow[] {
+  const includeTurnHeaders = options?.includeTurnHeaders ?? true;
+  const includeToolRows = options?.includeToolRows ?? true;
   const rows: LedgerRow[] = [];
   for (const turn of turns) {
     const turnCollapsed = collapsedTurns.has(turn.turn);
     if (turnCollapsed) {
-      rows.push({
-        key: `turn-${turn.turn}-summary`, kind: "turn-header", turn: turn.turn, step: null,
-        text: turn.prompt, model: null, usage: null, block: null, collapsedSummary: "turn",
-      });
+      if (includeTurnHeaders) {
+        rows.push({
+          key: `turn-${turn.turn}-summary`, kind: "turn-header", turn: turn.turn, step: null,
+          text: turn.prompt, model: null, usage: null, block: null, collapsedSummary: "turn",
+        });
+      }
       continue;
     }
-    rows.push({
-      key: `turn-${turn.turn}`, kind: "turn-header", turn: turn.turn, step: null,
-      text: turn.prompt, model: null, usage: null, block: null, collapsedSummary: null,
-    });
+    if (includeTurnHeaders) {
+      rows.push({
+        key: `turn-${turn.turn}`, kind: "turn-header", turn: turn.turn, step: null,
+        text: turn.prompt, model: null, usage: null, block: null, collapsedSummary: null,
+      });
+    }
     for (const step of turn.steps) {
       const key = assistantKey(turn.turn, step.step);
       const collapsible = step.cell.toolBlocks.length > 0;
@@ -65,6 +78,7 @@ export function flattenTrajectoryRows(
         collapsedSummary: null,
       });
       for (const block of step.cell.toolBlocks) {
+        if (!includeToolRows) break;
         rows.push({
           key: `tool-${block.callId}`, kind: "tool", turn: turn.turn, step: step.step,
           text: "", model: null, usage: null, block, collapsedSummary: null,

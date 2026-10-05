@@ -27,6 +27,7 @@ function ToolRow({ block }: { block: TrajToolBlock }): ReactNode {
   return (
     <div className="ledger__tool" data-call={block.callId}>
       <button type="button" className="ledger__tool-head" onClick={() => setOpen((v) => !v)}>
+        <span className="badge badge--tool">TOOL</span>
         <span className="ledger__tool-name">{block.name}</span>
         <span className={`ledger__tool-status ledger__tool-status--${block.status}`}>{block.status}</span>
       </button>
@@ -59,15 +60,24 @@ function ToolRow({ block }: { block: TrajToolBlock }): ReactNode {
   );
 }
 
-export function Ledger(props: { turns: TrajTurn[]; searchMatches?: ReadonlySet<string> | null }): ReactNode {
-  const { turns, searchMatches } = props;
+export function Ledger(props: {
+  turns: TrajTurn[];
+  searchMatches?: ReadonlySet<string> | null;
+  showTurns?: boolean;
+  showCalls?: boolean;
+}): ReactNode {
+  const { turns, searchMatches, showTurns = true, showCalls = true } = props;
   const [collapsedTurns, setCollapsedTurns] = useState<ReadonlySet<number>>(new Set());
   const [collapsedAssistants, setCollapsedAssistants] = useState<ReadonlySet<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const rows = useMemo(
-    () => flattenTrajectoryRows(turns, collapsedTurns, collapsedAssistants),
-    [turns, collapsedTurns, collapsedAssistants],
+    () =>
+      flattenTrajectoryRows(turns, collapsedTurns, collapsedAssistants, {
+        includeTurnHeaders: showTurns,
+        includeToolRows: showCalls,
+      }),
+    [turns, collapsedTurns, collapsedAssistants, showTurns, showCalls],
   );
   const collapsibleTurns = useMemo(() => collapsibleTurnIds(turns), [turns]);
   const totalUsage = useMemo(() => cumulativeUsage(turns), [turns]);
@@ -142,7 +152,9 @@ export function Ledger(props: { turns: TrajTurn[]; searchMatches?: ReadonlySet<s
               >
                 {row.kind === "turn-header" && (
                   <button type="button" className="ledger__turn" onClick={() => toggleTurn(row.turn)}>
+                    <span className="badge badge--turn">T{row.turn}</span>
                     <span className="ledger__turn-label">Turn {row.turn}</span>
+                    <span className="badge badge--user">USER</span>
                     <span className="ledger__turn-text">{row.text.slice(0, 60)}</span>
                   </button>
                 )}
@@ -155,6 +167,7 @@ export function Ledger(props: { turns: TrajTurn[]; searchMatches?: ReadonlySet<s
                 )}
                 {row.kind === "assistant" && (
                   <div className="ledger__assistant">
+                    <span className="badge badge--assistant">AI</span>
                     {row.text === "" ? <em>(no text)</em> : row.text}
                   </div>
                 )}

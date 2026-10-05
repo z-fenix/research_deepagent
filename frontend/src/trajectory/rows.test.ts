@@ -50,4 +50,38 @@ describe("flattenTrajectoryRows", () => {
     expect(turn0[2]!.step).toBe(1);
     expect(turn0[4]).toMatchObject({ kind: "assistant", step: 2, collapsedSummary: null });
   });
+
+  it("omits turn header rows when includeTurnHeaders is false", () => {
+    const turns = deriveTrajectory(messages);
+    const rows = flattenTrajectoryRows(turns, new Set(), new Set(), { includeTurnHeaders: false });
+    expect(rows.some((r) => r.kind === "turn-header")).toBe(false);
+    expect(rows.some((r) => r.kind === "assistant")).toBe(true);
+  });
+
+  it("omits tool rows and keeps assistant rows when includeToolRows is false", () => {
+    const turns = deriveTrajectory(messages);
+    const rows = flattenTrajectoryRows(turns, new Set(), new Set(), { includeToolRows: false });
+    expect(rows.some((r) => r.kind === "tool")).toBe(false);
+    expect(rows.filter((r) => r.kind === "assistant")).toHaveLength(3);
+  });
+
+  it("keeps row keys stable when filtering (Review Focus 3)", () => {
+    const turns = deriveTrajectory(messages);
+    const legacy = flattenTrajectoryRows(turns, new Set(), new Set());
+    const noTools = flattenTrajectoryRows(turns, new Set(), new Set(), { includeToolRows: false });
+    const noHeaders = flattenTrajectoryRows(turns, new Set(), new Set(), { includeTurnHeaders: false });
+    expect(noTools.map((r) => r.key)).toEqual(legacy.filter((r) => r.kind !== "tool").map((r) => r.key));
+    expect(noHeaders.map((r) => r.key)).toEqual(legacy.filter((r) => r.kind !== "turn-header").map((r) => r.key));
+  });
+
+  it("defaults match the legacy 3-arg projection exactly", () => {
+    const turns = deriveTrajectory(messages);
+    const legacy = flattenTrajectoryRows(turns, new Set(), new Set());
+    const defaulted = flattenTrajectoryRows(turns, new Set(), new Set(), {});
+    const explicit = flattenTrajectoryRows(turns, new Set(), new Set(), {
+      includeTurnHeaders: true, includeToolRows: true,
+    });
+    expect(defaulted.map((r) => r.key)).toEqual(legacy.map((r) => r.key));
+    expect(explicit.map((r) => r.key)).toEqual(legacy.map((r) => r.key));
+  });
 });

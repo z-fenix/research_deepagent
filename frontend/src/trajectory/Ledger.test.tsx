@@ -48,4 +48,14 @@ describe("Ledger", () => {
     render(<Ledger turns={deriveTrajectory(messages)} searchMatches={new Set(["0:1"])} />);
     expect(document.querySelector('[data-match="true"]')).toBeTruthy();
   });
+
+  it("renders visual role badges without changing keys or matching", () => {
+    render(<Ledger turns={deriveTrajectory(messages)} />);
+    expect(document.querySelector(".badge--turn")!.textContent).toBe("T0");
+    expect(document.querySelector(".badge--user")!.textContent).toBe("USER");
+    expect(document.querySelector(".badge--assistant")!.textContent).toBe("AI");
+    expect(document.querySelector(".badge--tool")!.textContent).toBe("TOOL");
+    // badge 仅视觉：assistant 行仍带 data-asst-key（滚动锚定不受影响）
+    expect(document.querySelector('[data-asst-key="0:1"]')).toBeTruthy();
+  });
 });
