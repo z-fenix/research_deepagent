@@ -96,59 +96,68 @@ body { margin: 0; }
   color: var(--app-state-warn);
 }
 
-/* Approval dock (HITL interrupts) --------------------------------------- */
-.approval-dock {
-  width: min(820px, 100%);
-  margin: 0 auto;
-  padding: 0.25rem 1rem 0.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-}
-
-.approval-card {
-  border: 1px solid var(--app-border-l2);
-  border-radius: var(--app-radius-md);
-  background: var(--app-bg-accent-soft);
-  padding: 0.7rem 0.85rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  box-shadow: var(--app-shadow-lv1);
-}
-
-.approval-card__header {
+/* Approval dialog (HITL interrupts, task11 居中模态) --------------------- */
+.approval-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 18, 30, 0.45);
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  justify-content: center;
+  z-index: 100;
 }
-
-.approval-card__tool {
+.approval-dialog {
+  width: min(560px, calc(100vw - 2rem));
+  max-height: calc(100dvh - 4rem);
+  overflow-y: auto;
+  background: var(--app-bg-layer-1);
+  border: 1px solid var(--app-border-l1);
+  border-radius: 14px;
+  box-shadow: 0 18px 50px rgba(15, 18, 30, 0.25);
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.approval-dialog__head { display: flex; align-items: baseline; gap: 0.6rem; }
+.approval-dialog__head strong { font-size: 1rem; }
+.approval-dialog__tool {
   font-family: var(--app-font-family-code);
-  font-size: 0.85em;
+  font-size: 0.8em;
   color: var(--app-label-secondary);
 }
-
-.approval-card__args {
+.approval-dialog__args {
   margin: 0;
   background: var(--app-bg-layer-2);
   border-radius: var(--app-radius-sm);
   padding: 0.5rem 0.65rem;
-  font-size: 0.85em;
+  font-size: 0.82em;
   font-family: var(--app-font-family-code);
   white-space: pre-wrap;
   word-break: break-word;
-  max-height: 160px;
+  max-height: 140px;
   overflow-y: auto;
 }
-
-.approval-card__actions {
+.approval-dialog__answer { display: flex; flex-direction: column; gap: 0.45rem; }
+.approval-dialog__option {
+  text-align: left;
+  border: 1px solid var(--app-border-l2);
+  border-radius: var(--app-radius-md);
+  background: var(--app-bg-base);
+  padding: 0.55rem 0.75rem;
+  font: inherit;
+  cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.15rem;
 }
-
-.approval-card__input {
+.approval-dialog__option:hover { border-color: var(--app-accent); }
+.approval-dialog__option--selected { border-color: var(--app-accent); background: var(--app-bg-accent-soft); }
+.approval-dialog__option--danger:hover,
+.approval-dialog__option--danger.approval-dialog__option--selected { border-color: var(--app-state-error); }
+.approval-dialog__option-title { font-weight: 600; font-size: 0.92rem; color: var(--app-label-primary); }
+.approval-dialog__option-desc { font-size: 0.8rem; color: var(--app-label-tertiary); }
+.approval-dialog__input {
   resize: vertical;
   border: 1px solid var(--app-border-l2);
   border-radius: var(--app-radius-sm);
@@ -157,35 +166,37 @@ body { margin: 0; }
   font: inherit;
   padding: 0.45rem 0.6rem;
 }
-.approval-card__input:focus {
-  outline: none;
-  border-color: var(--app-accent);
+.approval-dialog__input:focus { outline: none; border-color: var(--app-accent); }
+.approval-dialog__error { margin: 0; }
+.approval-dialog__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
 }
-
-.approval-card__button {
-  align-self: flex-start;
+.approval-dialog__pager { display: flex; align-items: center; gap: 0.4rem; color: var(--app-label-secondary); font-size: 0.85rem; }
+.approval-dialog__pager button {
+  border: 1px solid var(--app-border-l2);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-label-primary);
+  width: 1.6rem;
+  height: 1.6rem;
+  font: inherit;
+  cursor: pointer;
+}
+.approval-dialog__pager button:disabled { opacity: 0.35; cursor: not-allowed; }
+.approval-dialog__submit {
   border: 0;
   border-radius: var(--app-radius-sm);
   background: var(--app-accent);
   color: var(--app-label-on-accent);
-  padding: 0.45rem 0.9rem;
+  padding: 0.45rem 1.4rem;
   font: inherit;
   cursor: pointer;
 }
-.approval-card__button:hover:not(:disabled) { background: var(--app-accent-hover); }
-.approval-card__button:disabled { opacity: 0.5; cursor: not-allowed; }
-.approval-card__button--reject { background: var(--app-state-error); }
-
-.approval-card__reject {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.approval-card__decided { margin: 0; color: var(--app-label-secondary); font-size: 0.9em; }
-
-.approval-dock__error { margin: 0; }
-
+.approval-dialog__submit:hover:not(:disabled) { background: var(--app-accent-hover); }
+.approval-dialog__submit:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .msg {
   border-radius: var(--app-radius-md);

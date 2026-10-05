@@ -64,8 +64,12 @@ tabs（Chat：MessageList/ActivityCard ‖ Trajectory：TrajectoryView）
   AsyncSubAgentMiddleware；task_id == thread_id）。任务转 running 时自动打开
   右栏并激活对应 tab（每任务一次）；tab 体 = `useSubagentStream`
   (`assistantId: "sdd-agent"`, 懒连接) 的只读消息流。
-- workbench：ApprovalDock + TodoDock 迁入；审批契约（未决禁用 composer、
-  决策复位）不变。
+- workbench：TodoDock 迁入。审批不走面板——居中模态 `ApprovalDialog`
+  （task11）：遮罩 + 卡片，respond 门禁 = 快捷卡「同意，继续下一阶段」
+  （点中填入输入框，可再编辑）+ 自由输入；敏感工具 = 批准/拒绝选择卡
+  （拒绝需理由）；多动作分页 ‹1/N› 逐个作答，底部统一「提交」按
+  actionRequests 顺序组装 decisions（`submitApproval` 契约不变）。
+  审批契约（未决禁用 composer、提交失败清空作答）不变。
 
 ## Trajectory（src/trajectory/）
 

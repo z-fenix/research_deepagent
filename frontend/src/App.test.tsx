@@ -383,7 +383,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Trajectory" }));
     fireEvent.click(screen.getByRole("tab", { name: "Chat" }));
 
-    expect((screen.getByRole("textbox") as HTMLTextAreaElement).disabled).toBe(true);
+    expect((screen.getByRole("textbox", { name: "Message input" }) as HTMLTextAreaElement).disabled).toBe(true);
     expect(screen.getByRole("button", { name: /send/i })).toHaveProperty("disabled", true);
   });
 
@@ -393,13 +393,12 @@ describe("App", () => {
     render(<App />);
 
     // 审批未决：composer 输入与提交按钮均禁用
-    expect((screen.getByRole("textbox") as HTMLTextAreaElement).disabled).toBe(true);
+    expect((screen.getByRole("textbox", { name: "Message input" }) as HTMLTextAreaElement).disabled).toBe(true);
     const submitBtn = screen.getByRole("button", { name: /send/i });
     expect(submitBtn).toHaveProperty("disabled", true);
 
-    // 审批卡在 Workbench 面板内可用（切到 Workbench tab 后可见）
-    fireEvent.click(screen.getByRole("tab", { name: "Workbench" }));
-    expect(screen.getByTestId("approval-dock")).toBeTruthy();
+    // 审批以居中模态弹窗呈现（task11），不依赖右栏面板激活状态
+    expect(screen.getByTestId("approval-dialog")).toBeTruthy();
   });
 
   it("routes sidebar drags through the press-frozen baseline into the persisted pref", () => {

@@ -1,7 +1,7 @@
 // frontend/src/App.tsx
 // 三栏接线：左栏会话列表（含复制链接/删除操作列），中央 Chat|Trajectory tab
 // （task09 Task 3：Trajectory 出右栏入中央 tab）+ chat/Composer，右栏 PanelHost
-// （subagents / workbench: ApprovalDock+TodoDock）。
+// （subagents / workbench: TodoDock；审批走居中模态 ApprovalDialog）
 //
 // 拖拽接线（对简报 App 代码的修正，两处，均经 AppFrame 源码核实）：
 // 简报让 App 覆盖 onSidebarDrag/onRightbarDrag（`setSidebar(layout.cols.sidebar + dx)`），
@@ -26,7 +26,7 @@ import Sidebar from "./components/shell/Sidebar";
 import ThemeSettingsDialog from "./components/shell/ThemeSettingsDialog";
 import Composer from "./components/composer/Composer";
 import TodoDock from "./components/todo/TodoDock";
-import { ApprovalDock } from "./components/approval/ApprovalDock";
+import { ApprovalDialog } from "./components/approval/ApprovalDialog";
 import MessageList from "./components/chat/MessageList";
 import ActivityCard from "./components/chat/ActivityCard";
 import { useMessageTimestamps } from "./lib/timestamps";
@@ -111,11 +111,6 @@ function AgentWorkspace(): ReactNode {
         title: "Workbench",
         render: () => (
           <div className="workbench">
-            <ApprovalDock
-              pendingApproval={stream.pendingApproval ?? null}
-              error={stream.approvalError}
-              onSubmit={(decisions) => void stream.submitApproval(decisions)}
-            />
             <TodoDock todos={stream.todos} />
           </div>
         ),
@@ -232,6 +227,11 @@ function AgentWorkspace(): ReactNode {
             rail={layout.cols.rightbar === 0}
           />
         }
+      />
+      <ApprovalDialog
+        pendingApproval={stream.pendingApproval ?? null}
+        error={stream.approvalError}
+        onSubmit={(decisions) => void stream.submitApproval(decisions)}
       />
       <ThemeSettingsDialog open={appearanceOpen} onClose={() => setAppearanceOpen(false)} />
     </>
