@@ -1,5 +1,5 @@
 
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { RIGHTBAR_DEFAULT_RATIO } from "./layout/useFrameLayout";
@@ -67,7 +67,7 @@ const samplePendingApproval = {
 };
 
 /** 右栏默认打开（可带初始面板）：jsdom 视口 1024，轨道存在时 PanelHost 才挂载。 */
-function seedRightbar(panel: "subagents" | "trajectory" | "workbench" | null): void {
+function seedRightbar(panel: "subagents" | "workbench" | null): void {
   localStorage.setItem("harness.rightbar", "600");
   if (panel !== null) localStorage.setItem("harness.panel", panel);
 }
@@ -293,8 +293,46 @@ describe("App", () => {
 
     expect(document.querySelector('[data-testid="frame"]')).toBeTruthy();
     expect(screen.getByRole("tab", { name: "Sub-agents" })).toBeTruthy();
-    expect(screen.getByRole("tab", { name: "Trajectory" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "Workbench" })).toBeTruthy();
+  });
+
+  it("moves Trajectory into center Chat|Trajectory tabs, keeping chat state (Review Focus 2)", () => {
+    render(<App />);
+
+    const chatTab = screen.getByRole("tab", { name: "Chat" });
+    const trajectoryTab = screen.getByRole("tab", { name: "Trajectory" });
+    // 默认 Chat 激活，Trajectory 内容不可见
+    expect(chatTab.getAttribute("aria-selected")).toBe("true");
+    expect(trajectoryTab.getAttribute("aria-selected")).toBe("false");
+    expect(screen.queryByRole("toolbar", { name: "Timeline mode" })).toBeNull();
+    expect(screen.getByText("IBM published a LangGraph guide.")).toBeTruthy();
+
+    // 点 Trajectory → TrajectoryView 出现（Timeline toolbar 为其标志）
+    fireEvent.click(trajectoryTab);
+    expect(trajectoryTab.getAttribute("aria-selected")).toBe("true");
+    expect(chatTab.getAttribute("aria-selected")).toBe("false");
+    expect(screen.getByRole("toolbar", { name: "Timeline mode" })).toBeTruthy();
+    // 右栏只剩 Sub-agents / Workbench 两 tab（Trajectory 面板已移除）
+    const rightbarTabs = within(
+      document.querySelector(".panel-host") as HTMLElement,
+    ).getAllByRole("tab");
+    expect(rightbarTabs.map((tab) => tab.textContent)).toEqual(["Sub-agents", "Workbench"]);
+
+    // 切回 Chat：消息列表还在（流状态未因 tab 切换丢失）
+    fireEvent.click(chatTab);
+    expect(screen.getByText("IBM published a LangGraph guide.")).toBeTruthy();
+    expect(screen.queryByRole("toolbar", { name: "Timeline mode" })).toBeNull();
+  });
+
+  it("keeps composer approval-disabled across center tab switches (Review Focus 2)", () => {
+    streamState.interrupt = { value: samplePendingApproval };
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Trajectory" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Chat" }));
+
+    expect((screen.getByRole("textbox") as HTMLTextAreaElement).disabled).toBe(true);
+    expect(screen.getByRole("button", { name: /send/i })).toHaveProperty("disabled", true);
   });
 
   it("keeps the approval contract: pending approval disables the composer (Review Focus 5)", () => {

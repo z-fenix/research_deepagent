@@ -1,6 +1,7 @@
 // frontend/src/App.tsx
-// 三栏接线（task08 Task 5）：左栏会话列表，中央 chat+Composer，右栏 PanelHost
-// （subagents / trajectory 占位 / workbench: ApprovalDock+TodoDock）。
+// 三栏接线（task08 Task 5）：左栏会话列表，中央 Header + Chat|Trajectory tab
+// （task09 Task 3：Trajectory 出右栏入中央 tab）+ chat/Composer，右栏 PanelHost
+// （subagents / workbench: ApprovalDock+TodoDock）。
 //
 // 拖拽接线（对简报 App 代码的修正，两处，均经 AppFrame 源码核实）：
 // 简报让 App 覆盖 onSidebarDrag/onRightbarDrag（`setSidebar(layout.cols.sidebar + dx)`），
@@ -43,6 +44,8 @@ function AgentWorkspace(): ReactNode {
   // 惰性初始化：mount 时的 null 副作用会抹掉持久化的面板键（Task 3 裁定）。
   const [activePanel, setActivePanel] = useState<PanelId | null>(() => readActivePanel());
   const [activeSubagentTask, setActiveSubagentTask] = useState<string | null>(null);
+  // 中央 Chat|Trajectory tab（task09 Task 3）：会话级视图，组件 state 不持久化。
+  const [centerTab, setCenterTab] = useState<"chat" | "trajectory">("chat");
 
   const tasks: AsyncTaskView[] = useMemo(() => readAsyncTasks(stream.values), [stream.values]);
   // 客户端时间戳捕获（spec §5.3）：仅实时流有；历史回放 → Timeline 时间模式禁用。
@@ -93,17 +96,6 @@ function AgentWorkspace(): ReactNode {
         ),
       },
       {
-        id: "trajectory",
-        title: "Trajectory",
-        render: () => (
-          <TrajectoryView
-            turns={trajectoryTurns}
-            timestamps={msgTimestamps}
-            messages={stream.messages}
-          />
-        ),
-      },
-      {
         id: "workbench",
         title: "Workbench",
         render: () => (
@@ -125,9 +117,6 @@ function AgentWorkspace(): ReactNode {
       stream.approvalError,
       stream.todos,
       stream.submitApproval,
-      stream.messages,
-      msgTimestamps,
-      trajectoryTurns,
     ],
   );
 
@@ -169,26 +158,56 @@ function AgentWorkspace(): ReactNode {
         center={
           <>
             <Header sessionUrl={sessionUrl} />
-            <div className="shell__scroll">
-              <div className="shell__content">
-                <section className="chat" aria-label="Research conversation">
-                  {stream.rows.length === 0 && !stream.isLoading && (
-                    <p className="hint">
-                      Try: <em>"Research what LangGraph 1.0 added vs 0.x. Cite sources."</em>
-                    </p>
-                  )}
-                  <MessageList rows={stream.rows} />
-                  <ActivityCard visible={stream.isLoading} />
-                  {stream.error ? <p className="error">{String(stream.error)}</p> : null}
-                </section>
-              </div>
+            <div className="center-tabs" role="tablist" aria-label="Center view">
+              <button
+                type="button"
+                role="tab"
+                className="center-tabs__tab"
+                aria-selected={centerTab === "chat"}
+                onClick={() => setCenterTab("chat")}
+              >
+                Chat
+              </button>
+              <button
+                type="button"
+                role="tab"
+                className="center-tabs__tab"
+                aria-selected={centerTab === "trajectory"}
+                onClick={() => setCenterTab("trajectory")}
+              >
+                Trajectory
+              </button>
             </div>
+            {centerTab === "chat" ? (
+              <div className="shell__scroll">
+                <div className="shell__content">
+                  <section className="chat" aria-label="Research conversation">
+                    {stream.rows.length === 0 && !stream.isLoading && (
+                      <p className="hint">
+                        Try: <em>"Research what LangGraph 1.0 added vs 0.x. Cite sources."</em>
+                      </p>
+                    )}
+                    <MessageList rows={stream.rows} />
+                    <ActivityCard visible={stream.isLoading} />
+                    {stream.error ? <p className="error">{String(stream.error)}</p> : null}
+                  </section>
+                </div>
+              </div>
+            ) : (
+              <div className="center-trajectory">
+                <TrajectoryView
+                  turns={trajectoryTurns}
+                  timestamps={msgTimestamps}
+                  messages={stream.messages}
+                />
+              </div>
+            )}
             <Composer
               isLoading={stream.isLoading}
               disabled={stream.pendingApproval != null}
               onSubmit={stream.submit}
               onStop={stream.stop}
-              stats={composerStats}
+              stats={trajectoryTurns.length > 0 ? composerStats : undefined}
             />
           </>
         }

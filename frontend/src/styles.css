@@ -526,6 +526,37 @@ body { margin: 0; }
 }
 .header__copy:hover { background: var(--app-bg-accent-soft); }
 
+/* 中央 Chat|Trajectory tab（task09 Task 3：Trajectory 入口出右栏，参照下划线 tab） */
+.center-tabs {
+  display: flex;
+  gap: 1.4rem;
+  padding: 0 1.25rem;
+  border-bottom: 1px solid var(--app-border-l1);
+  flex-shrink: 0;
+}
+.center-tabs__tab {
+  border: none;
+  background: transparent;
+  padding: 0.5rem 0.15rem;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--app-label-secondary);
+  cursor: pointer;
+  box-shadow: inset 0 -2px 0 transparent;
+}
+.center-tabs__tab[aria-selected="true"] {
+  color: var(--app-label-primary);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--accent, #4f6ef7);
+}
+/* Trajectory tab 内容：占满中央剩余高度（chat 区块让位，Composer 仍在底部） */
+.center-trajectory {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1rem 1.25rem;
+}
+
 /* sidebar --------------------------------------------------------------- */
 .sidebar {
   width: 260px;
