@@ -4,6 +4,7 @@ import { useThreads } from "./threads";
 
 beforeEach(() => {
   search.mockClear();
+  remove.mockClear();
 });
 
 afterEach(() => {
@@ -11,10 +12,11 @@ afterEach(() => {
 });
 
 const search = vi.fn();
+const remove = vi.fn();
 
 vi.mock("@langchain/langgraph-sdk", () => ({
   Client: vi.fn(function () {
-    return { threads: { search } };
+    return { threads: { search, delete: remove } };
   }),
 }));
 
@@ -35,8 +37,8 @@ function listFixture() {
   ];
 }
 
-function Probe() {
-  const { threads, loading, refresh } = useThreads("http://x");
+function Probe({ withRemove = false }: { withRemove?: boolean }) {
+  const { threads, loading, refresh, removeThread } = useThreads("http://x");
   return (
     <div>
       <span>{loading ? "loading" : "idle"}</span>
@@ -44,6 +46,9 @@ function Probe() {
         <span key={t.threadId}>{t.title}</span>
       ))}
       <button onClick={refresh}>refresh</button>
+      {withRemove && (
+        <button onClick={() => void removeThread("aaaaaaaa-1111")}>remove</button>
+      )}
     </div>
   );
 }
@@ -65,6 +70,17 @@ describe("useThreads", () => {
     render(<Probe />);
     await waitFor(() => expect(screen.getByText("idle")).toBeTruthy());
     act(() => { screen.getByText("refresh").click(); });
+    await waitFor(() => expect(search).toHaveBeenCalledTimes(2));
+  });
+
+  it("removeThread deletes via the SDK then refreshes the list", async () => {
+    remove.mockResolvedValue(undefined);
+    search.mockResolvedValue(listFixture());
+    render(<Probe withRemove />);
+    await waitFor(() => expect(screen.getByText("idle")).toBeTruthy());
+    expect(search).toHaveBeenCalledTimes(1);
+    act(() => { screen.getByText("remove").click(); });
+    await waitFor(() => expect(remove).toHaveBeenCalledWith("aaaaaaaa-1111"));
     await waitFor(() => expect(search).toHaveBeenCalledTimes(2));
   });
 });

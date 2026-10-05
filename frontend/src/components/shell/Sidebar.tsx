@@ -1,5 +1,6 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { ThreadSummary } from "../../lib/threads";
+import { sessionLink } from "../../lib/stream";
 
 type SidebarProps = {
   open: boolean;
@@ -10,6 +11,8 @@ type SidebarProps = {
   onSelect: (threadId: string) => void;
   onNewSession: () => void;
   onOpenAppearance: () => void;
+  /** 删除确认与 SDK 调用由 App 负责；Sidebar 只上报 threadId。 */
+  onDeleteSession: (threadId: string) => void;
 };
 
 /** 相对时间：<60s "now"、<60m "Xm"、<24h "Xh"、否则 "Xd"。 */
@@ -27,7 +30,65 @@ export function relativeTime(iso: string): string {
 
 const WORKSPACE_ICONS = ["⌕", "▤", "⊞"] as const;
 
+/** 单条会话行：主按钮（选中）+ 悬停/聚焦浮现的操作列（复制链接 / 删除）。 */
+function SessionItem(props: {
+  thread: ThreadSummary;
+  active: boolean;
+  copied: boolean;
+  onSelect: (threadId: string) => void;
+  onCopy: (threadId: string) => void;
+  onDelete: (threadId: string) => void;
+}): ReactNode {
+  const { thread } = props;
+  return (
+    <div className={`sidebar__item${props.active ? " sidebar__item--active" : ""}`}>
+      <button
+        type="button"
+        className="sidebar__item-main"
+        onClick={() => props.onSelect(thread.threadId)}
+      >
+        <span className="sidebar__item-title">{thread.title}</span>
+        <span className="sidebar__item-time">{relativeTime(thread.updatedAt)}</span>
+      </button>
+      <span className="sidebar__item-actions">
+        <button
+          type="button"
+          className="sidebar__item-action"
+          aria-label="Copy session link"
+          title={props.copied ? "Copied" : "Copy session link"}
+          onClick={() => props.onCopy(thread.threadId)}
+        >
+          {props.copied ? "✓" : "🔗"}
+        </button>
+        <button
+          type="button"
+          className="sidebar__item-action"
+          aria-label="Delete session"
+          title="Delete session"
+          onClick={() => props.onDelete(thread.threadId)}
+        >
+          🗑
+        </button>
+      </span>
+    </div>
+  );
+}
+
 export default function Sidebar(props: SidebarProps): ReactNode {
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  async function copySession(threadId: string) {
+    const url = sessionLink(threadId);
+    if (url === null) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedId(threadId);
+      setTimeout(() => setCopiedId((current) => (current === threadId ? null : current)), 1500);
+    } catch {
+      /* clipboard unavailable — keep the row usable */
+    }
+  }
+
   return (
     <aside className={`sidebar${props.open ? " sidebar--open" : ""}`} aria-label="Session history">
       <div className="sidebar__brand-row">
@@ -56,15 +117,15 @@ export default function Sidebar(props: SidebarProps): ReactNode {
           <p className="sidebar__empty">No sessions yet</p>
         )}
         {props.threads.map((thread) => (
-          <button
+          <SessionItem
             key={thread.threadId}
-            type="button"
-            className={`sidebar__item${thread.threadId === props.activeThreadId ? " sidebar__item--active" : ""}`}
-            onClick={() => props.onSelect(thread.threadId)}
-          >
-            <span className="sidebar__item-title">{thread.title}</span>
-            <span className="sidebar__item-time">{relativeTime(thread.updatedAt)}</span>
-          </button>
+            thread={thread}
+            active={thread.threadId === props.activeThreadId}
+            copied={copiedId === thread.threadId}
+            onSelect={props.onSelect}
+            onCopy={(id) => void copySession(id)}
+            onDelete={props.onDeleteSession}
+          />
         ))}
       </nav>
       <div className="sidebar__footer">

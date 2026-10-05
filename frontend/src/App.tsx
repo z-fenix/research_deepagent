@@ -1,5 +1,5 @@
 // frontend/src/App.tsx
-// 三栏接线（task08 Task 5）：左栏会话列表，中央 Header + Chat|Trajectory tab
+// 三栏接线：左栏会话列表（含复制链接/删除操作列），中央 Chat|Trajectory tab
 // （task09 Task 3：Trajectory 出右栏入中央 tab）+ chat/Composer，右栏 PanelHost
 // （subagents / workbench: ApprovalDock+TodoDock）。
 //
@@ -15,7 +15,7 @@
 
 import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import { ThemeProvider } from "./theme/ThemeProvider";
-import { API_URL, sessionLink, useAgentStream } from "./lib/stream";
+import { API_URL, useAgentStream } from "./lib/stream";
 import { useThreads } from "./lib/threads";
 import { AppFrame } from "./layout/AppFrame";
 import { useFrameLayout } from "./layout/useFrameLayout";
@@ -23,7 +23,6 @@ import { PanelHost, readActivePanel, type PanelDef, type PanelId } from "./panel
 import { SubagentPanel } from "./panels/SubagentPanel";
 import { readAsyncTasks, useAutoOpenRunningTask, type AsyncTaskView } from "./panels/subagent-tasks";
 import Sidebar from "./components/shell/Sidebar";
-import Header from "./components/shell/Header";
 import ThemeSettingsDialog from "./components/shell/ThemeSettingsDialog";
 import Composer from "./components/composer/Composer";
 import TodoDock from "./components/todo/TodoDock";
@@ -36,7 +35,7 @@ import { TrajectoryView } from "./trajectory/TrajectoryView";
 
 function AgentWorkspace(): ReactNode {
   const stream = useAgentStream();
-  const { threads, loading } = useThreads(API_URL);
+  const { threads, loading, removeThread } = useThreads(API_URL);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [appearanceOpen, setAppearanceOpen] = useState(false);
   const frameRef = useRef<HTMLDivElement | null>(null);
@@ -80,7 +79,19 @@ function AgentWorkspace(): ReactNode {
     [actions],
   );
 
-  const sessionUrl = sessionLink(stream.threadId);
+  // 删除会话：确认后调 SDK delete 并刷新列表；删的是当前会话则切回新会话态。
+  const handleDeleteSession = useCallback(
+    async (threadId: string) => {
+      if (!window.confirm("Delete this session?")) return;
+      try {
+        await removeThread(threadId);
+        if (stream.threadId === threadId) stream.openThread(undefined);
+      } catch (error) {
+        window.alert(`Delete failed: ${String(error)}`);
+      }
+    },
+    [removeThread, stream],
+  );
 
   const panels: PanelDef[] = useMemo(
     () => [
@@ -152,12 +163,12 @@ function AgentWorkspace(): ReactNode {
                 setDrawerOpen(false);
               }}
               onOpenAppearance={() => setAppearanceOpen(true)}
+              onDeleteSession={(id) => void handleDeleteSession(id)}
             />
           </>
         }
         center={
           <>
-            <Header sessionUrl={sessionUrl} />
             <div className="center-tabs" role="tablist" aria-label="Center view">
               <button
                 type="button"

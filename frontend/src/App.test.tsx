@@ -81,15 +81,22 @@ vi.mock("@langchain/react", () => ({
   },
 }));
 
+const sdkSearch = vi.fn().mockResolvedValue([]);
+const sdkDelete = vi.fn().mockResolvedValue(undefined);
+
 vi.mock("@langchain/langgraph-sdk", () => ({
   Client: vi.fn(function () {
-    return { threads: { search: vi.fn().mockResolvedValue([]) } };
+    return { threads: { search: sdkSearch, delete: sdkDelete } };
   }),
 }));
 
 afterEach(() => {
   cleanup();
   capturedStreamOptions = null;
+  sdkSearch.mockReset();
+  sdkSearch.mockResolvedValue([]);
+  sdkDelete.mockReset();
+  sdkDelete.mockResolvedValue(undefined);
   window.history.replaceState({}, "", "http://localhost:3000/");
   streamState.isLoading = false;
   streamState.interrupt = null;
@@ -137,7 +144,8 @@ afterEach(() => {
 describe("App", () => {
   it("shows the new-session hint before any thread exists", () => {
     render(<App />);
-    expect(screen.getByText("新会话 · 发送首条消息后生成链接")).toBeTruthy();
+    // Header 已移除（task10）：无会话时不渲染右上角链接提示
+    expect(screen.queryByText("新会话 · 发送首条消息后生成链接")).toBeNull();
   });
 
   it("renders a collapsible todo dock with progress summary", () => {
@@ -266,7 +274,14 @@ describe("App", () => {
     expect(screen.getByText("Waiting for sub-agent results and final synthesis.")).toBeTruthy();
   });
 
-  it("writes the created thread id into the URL and shows the session link", () => {
+  it("writes the created thread id into the URL and offers sidebar copy/delete actions", async () => {
+    sdkSearch.mockResolvedValue([
+      {
+        thread_id: "thread-123",
+        updated_at: "2026-10-05T10:00:00Z",
+        values: { messages: [{ type: "human", content: "Research IBM" }] },
+      },
+    ]);
     render(<App />);
 
     act(() => {
@@ -274,8 +289,45 @@ describe("App", () => {
     });
 
     expect(window.location.search).toBe("?thread=thread-123");
-    expect(screen.getByText("http://localhost:3000/?thread=thread-123")).toBeTruthy();
-    expect(screen.getByText("复制会话链接")).toBeTruthy();
+    // 会话链接功能已迁入侧栏操作列（task10）：右上角不再渲染 URL/复制按钮
+    await screen.findByRole("button", { name: "Copy session link" });
+    expect(screen.queryByText("复制会话链接")).toBeNull();
+  });
+
+  it("deletes a session through the sidebar action after confirmation", async () => {
+    window.confirm = vi.fn(() => true);
+    sdkSearch.mockResolvedValue([
+      {
+        thread_id: "t-9",
+        updated_at: "2026-10-05T10:00:00Z",
+        values: { messages: [{ type: "human", content: "Old chat" }] },
+      },
+    ]);
+    window.history.replaceState({}, "", "http://localhost:3000/?thread=t-9");
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Delete session" }));
+    await vi.waitFor(() => expect(sdkDelete).toHaveBeenCalledWith("t-9"));
+    // 删除的是当前会话 → 切回新会话态（URL 参数被清除）
+    await vi.waitFor(() => expect(window.location.search).toBe(""));
+  });
+
+  it("keeps the session when the delete confirmation is dismissed", async () => {
+    window.confirm = vi.fn(() => false);
+    sdkSearch.mockResolvedValue([
+      {
+        thread_id: "t-9",
+        updated_at: "2026-10-05T10:00:00Z",
+        values: { messages: [{ type: "human", content: "Old chat" }] },
+      },
+    ]);
+    window.history.replaceState({}, "", "http://localhost:3000/?thread=t-9");
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Delete session" }));
+    await vi.waitFor(() => expect(window.confirm).toHaveBeenCalled());
+    expect(sdkDelete).not.toHaveBeenCalled();
+    expect(window.location.search).toBe("?thread=t-9");
   });
 
   it("skips the todo panel when the backend has not emitted todos yet", () => {

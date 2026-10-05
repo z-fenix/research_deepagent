@@ -11,7 +11,7 @@ function threadAt(updatedAt: string): ThreadSummary[] {
   return [{ threadId: "t1", updatedAt, title: "Quantum error correction" }];
 }
 
-function renderSidebar(threads: ThreadSummary[] = []) {
+function renderSidebar(threads: ThreadSummary[] = [], onDeleteSession: (id: string) => void = noop) {
   return render(
     <Sidebar
       open
@@ -22,6 +22,7 @@ function renderSidebar(threads: ThreadSummary[] = []) {
       onSelect={noop}
       onNewSession={noop}
       onOpenAppearance={noop}
+      onDeleteSession={onDeleteSession}
     />,
   );
 }
@@ -43,6 +44,7 @@ describe("Sidebar", () => {
         onSelect={noop}
         onNewSession={onNewSession}
         onOpenAppearance={noop}
+        onDeleteSession={noop}
       />,
     );
     expect(screen.getByRole("button", { name: /new session/i })).toBeTruthy();
@@ -64,6 +66,7 @@ describe("Sidebar", () => {
         onSelect={noop}
         onNewSession={noop}
         onOpenAppearance={onOpenAppearance}
+        onDeleteSession={noop}
       />,
     );
     expect(screen.getByText("local-user")).toBeTruthy();
@@ -105,5 +108,38 @@ describe("relativeTime", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-10-05T12:00:00Z"));
     expect(relativeTime("2026-10-01T12:00:00Z")).toBe("4d");
+  });
+});
+
+describe("Sidebar session actions", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function renderWithSession(onDeleteSession: (id: string) => void) {
+    return renderSidebar([{ threadId: "t1", updatedAt: "2026-10-05T10:00:00Z", title: "Quantum error correction" }], onDeleteSession);
+  }
+
+  it("exposes per-session copy-link and delete actions", () => {
+    renderWithSession(noop);
+    expect(screen.getByRole("button", { name: "Copy session link" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Delete session" })).toBeTruthy();
+  });
+
+  it("copies the session URL to the clipboard", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    renderWithSession(noop);
+    fireEvent.click(screen.getByRole("button", { name: "Copy session link" }));
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    const url = writeText.mock.calls[0]![0] as string;
+    expect(url).toContain("thread=t1");
+  });
+
+  it("delegates deletion to onDeleteSession with the thread id", () => {
+    const onDeleteSession = vi.fn();
+    renderWithSession(onDeleteSession);
+    fireEvent.click(screen.getByRole("button", { name: "Delete session" }));
+    expect(onDeleteSession).toHaveBeenCalledWith("t1");
   });
 });

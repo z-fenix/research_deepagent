@@ -47,10 +47,10 @@ task09 落地了 sidebar/composer 的 harness 细节对齐、Trajectory 从右�
 
 ## 中央 Chat|Trajectory tab（src/App.tsx，task09 Task 3）
 
-Trajectory 入口从右栏面板迁入中央 Header 下方的 `center-tabs`
+Trajectory 入口从右栏面板迁入中央列顶部的 `center-tabs`（Header 已移除，task10）
 （Chat / Trajectory 两个 tab，组件 state 不持久化，默认 Chat）。
 右栏只剩 Sub-agents + Workbench（见下）。中央区结构：
-Header → tabs → （Chat：MessageList/ActivityCard ‖ Trajectory：TrajectoryView）
+tabs（Chat：MessageList/ActivityCard ‖ Trajectory：TrajectoryView）
 → Composer 恒在底部。
 
 ## 右栏面板域（src/panels/）
@@ -71,7 +71,7 @@ Header → tabs → （Chat：MessageList/ActivityCard ‖ Trajectory：Trajecto
 
 ### 组合视图 `TrajectoryView`（task09 Task 4）
 
-Header 下方工具栏 = 左侧三 toggle 开关钮（参照 TrajectoryToolbar 语义，非
+tabs 下方工具栏 = 左侧三 toggle 开关钮（参照 TrajectoryToolbar 语义，非
 行过滤器）+ 右侧搜索框（3s 节流索引）：
 
 - **Duration**（默认按下，`aria-pressed`）：下方堆叠分段条常驻，每 step

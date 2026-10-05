@@ -22,6 +22,7 @@ export function useThreads(apiUrl: string): {
   loading: boolean;
   error: unknown;
   refresh: () => void;
+  removeThread: (threadId: string) => Promise<void>;
 } {
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,5 +51,12 @@ export function useThreads(apiUrl: string): {
   }, [apiUrl, tick]);
 
   const refresh = useCallback(() => setTick((t) => t + 1), []);
-  return { threads, loading, error, refresh };
+  const removeThread = useCallback(
+    async (threadId: string) => {
+      await new Client({ apiUrl }).threads.delete(threadId);
+      setTick((t) => t + 1);
+    },
+    [apiUrl],
+  );
+  return { threads, loading, error, refresh, removeThread };
 }

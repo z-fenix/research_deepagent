@@ -495,37 +495,6 @@ body { margin: 0; }
   padding: 1rem 1rem 1.5rem;
 }
 
-/* header ---------------------------------------------------------------- */
-.header {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.55rem 1rem;
-  border-bottom: 1px solid var(--app-border-l1);
-}
-
-.header__hint { color: var(--app-label-caption); font-size: 0.85rem; }
-
-.header__session { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
-.header__url {
-  max-width: 340px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.header__copy {
-  border: 0;
-  border-radius: var(--app-radius-sm);
-  background: var(--app-bg-layer-2);
-  color: var(--app-label-primary);
-  padding: 0.3rem 0.6rem;
-  font: inherit;
-  font-size: 0.82rem;
-  cursor: pointer;
-}
-.header__copy:hover { background: var(--app-bg-accent-soft); }
-
 /* 中央 Chat|Trajectory tab（task09 Task 3：Trajectory 入口出右栏，参照下划线 tab） */
 .center-tabs {
   display: flex;
@@ -635,19 +604,49 @@ body { margin: 0; }
 .sidebar__item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.4rem;
-  text-align: left;
-  border: 0;
+  gap: 0.2rem;
   border-radius: var(--app-radius-md);
   background: transparent;
   color: var(--app-label-primary);
-  padding: 0.5rem 0.6rem;
-  font: inherit;
-  cursor: pointer;
+  padding: 0 0.25rem 0 0;
 }
 .sidebar__item:hover { background: var(--app-bg-layer-2); }
 .sidebar__item--active { background: var(--app-bg-accent-soft); }
+.sidebar__item-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  min-width: 0;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0.5rem 0.35rem 0.5rem 0.6rem;
+  font: inherit;
+  cursor: pointer;
+}
+.sidebar__item-actions {
+  display: flex;
+  gap: 0.1rem;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.sidebar__item:hover .sidebar__item-actions,
+.sidebar__item:focus-within .sidebar__item-actions { opacity: 1; }
+.sidebar__item-action {
+  border: 0;
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-label-secondary);
+  font-size: 0.8rem;
+  line-height: 1;
+  padding: 0.3rem 0.3rem;
+  cursor: pointer;
+}
+.sidebar__item-action:hover { background: var(--app-bg-accent-soft); color: var(--app-label-primary); }
 .sidebar__item-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sidebar__item-time {
   flex-shrink: 0;
