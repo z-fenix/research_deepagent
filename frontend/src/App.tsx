@@ -131,7 +131,7 @@ function AgentWorkspace(): ReactNode {
             <button
               type="button"
               className="shell__menu"
-              aria-label="打开会话列表"
+              aria-label="Open session list"
               onClick={() => setDrawerOpen(true)}
             >
               ☰

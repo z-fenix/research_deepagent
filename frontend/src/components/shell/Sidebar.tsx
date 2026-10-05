@@ -33,7 +33,7 @@ export default function Sidebar(props: SidebarProps): ReactNode {
       <div className="sidebar__brand-row">
         <span className="sidebar__brand">Research Deep Agent</span>
         <span className="sidebar__brand-tag">AGENT</span>
-        <button type="button" className="sidebar__close" onClick={props.onClose} aria-label="关闭会话列表">
+        <button type="button" className="sidebar__close" onClick={props.onClose} aria-label="Close session list">
           ×
         </button>
       </div>

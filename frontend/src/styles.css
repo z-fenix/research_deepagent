@@ -617,6 +617,7 @@ body { margin: 0; }
 
 .sidebar__new {
   width: 100%;
+  box-sizing: border-box;
   border: 0;
   border-radius: var(--app-radius-md);
   background: var(--app-accent);
