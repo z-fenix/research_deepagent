@@ -8,7 +8,7 @@
 import { useEffect, type ReactNode } from "react";
 import { PanelErrorBoundary } from "./PanelErrorBoundary";
 
-export type PanelId = "subagents" | "trajectory" | "workbench";
+export type PanelId = "subagents" | "workbench";
 
 export type PanelDef = {
   id: PanelId;
@@ -28,7 +28,7 @@ export function persistActivePanel(id: PanelId | null, key = "harness.panel"): v
 export function readActivePanel(key = "harness.panel"): PanelId | null {
   try {
     const raw = localStorage.getItem(key);
-    return raw === "subagents" || raw === "trajectory" || raw === "workbench" ? raw : null;
+    return raw === "subagents" || raw === "workbench" ? raw : null;
   } catch {
     return null;
   }

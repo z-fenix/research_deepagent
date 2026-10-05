@@ -7,7 +7,6 @@ import { PanelHost, type PanelDef } from "./PanelHost";
 
 const panels: PanelDef[] = [
   { id: "subagents", title: "Sub-agents", render: () => <div>subagent body</div> },
-  { id: "trajectory", title: "Trajectory", render: () => <div>trajectory body</div> },
   { id: "workbench", title: "Workbench", render: () => <div>workbench body</div> },
 ];
 
@@ -20,9 +19,9 @@ beforeEach(() => localStorage.clear());
 
 describe("PanelHost", () => {
   it("renders tab bar and only the active panel body", () => {
-    render(<PanelHost panels={panels} activeId="trajectory" onActivate={vi.fn()} />);
+    render(<PanelHost panels={panels} activeId="workbench" onActivate={vi.fn()} />);
     expect(screen.getByRole("tab", { name: "Sub-agents" })).toBeTruthy();
-    expect(screen.getByText("trajectory body")).toBeTruthy();
+    expect(screen.getByText("workbench body")).toBeTruthy();
     expect(screen.queryByText("subagent body")).toBeNull();
   });
 
@@ -66,17 +65,17 @@ describe("PanelHost", () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     let shouldThrow = true;
     const crashing: PanelDef[] = [
-      { id: "trajectory", title: "Trajectory", render: () => { if (shouldThrow) throw new Error("boom"); return <div>trajectory body</div>; } },
+      { id: "workbench", title: "Workbench", render: () => { if (shouldThrow) throw new Error("boom"); return <div>workbench body</div>; } },
     ];
-    render(<PanelHost panels={crashing} activeId="trajectory" onActivate={vi.fn()} />);
+    render(<PanelHost panels={crashing} activeId="workbench" onActivate={vi.fn()} />);
 
     expect(screen.getByText("Panel crashed")).toBeTruthy();
     // 面板崩溃不影响 PanelHost 自身（tab 栏仍在）
-    expect(screen.getByRole("tab", { name: "Trajectory" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Workbench" })).toBeTruthy();
 
     shouldThrow = false;
     fireEvent.click(screen.getByRole("button", { name: /retry/i }));
-    expect(screen.getByText("trajectory body")).toBeTruthy();
+    expect(screen.getByText("workbench body")).toBeTruthy();
     expect(screen.queryByText("Panel crashed")).toBeNull();
     consoleError.mockRestore();
   });
