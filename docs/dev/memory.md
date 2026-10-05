@@ -140,7 +140,7 @@ namespace 工厂在 StoreBackend 内部拿到运行时后调用上述函数，�
   `langgraph-checkpoint-postgres`，连接串在部署装配层指定）。
   仓库代码无需改动——`build_deep_agent(store=)`、`default_store()` 与
   StoreBackend 都只依赖 `BaseStore` 抽象；换库后同一 namespace 数据
-  原样迁移即可。注意 Sqlite 默认仅适配单进程 agentseek dev：多 worker
+  原样迁移即可。注意 Sqlite 默认仅适配单进程 langgraph dev：多 worker
   并发写同一文件不在支持范围。
 
 ## 6. 测试

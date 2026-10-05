@@ -36,7 +36,6 @@ from research_deepagent.prompts import (
     ORCHESTRATOR_INSTRUCTIONS,
     PRD_AGENT_INSTRUCTIONS,
 )
-from research_deepagent.store import default_store
 from research_deepagent.schemas import (
     BddPhaseReport,
     PrdPhaseReport,
@@ -295,11 +294,11 @@ def build_deep_agent(model, *, backend, subagents=None, store=None, checkpointer
     `/memories/user/` (user_id-scoped) to a StoreBackend; MemoryMiddleware
     loads MEMORY_SOURCES into the system prompt each run (missing files are
     skipped). `store` is the LangGraph BaseStore backing those namespaces;
-    when omitted, a persistent local default is built via
-    `research_deepagent.store.default_store` — the serving runtime (agentseek
-    dev) does NOT inject a store, and `get_store()` returning None used to
-    crash every run inside MemoryMiddleware.before_agent
-    (AttributeError "'NoneType' object has no attribute 'get'").
+    leave it as None for the serving runtime — langgraph dev (langgraph-api)
+    injects the platform store and REFUSES graphs that ship a custom one
+    (GraphLoadError at startup). `research_deepagent.store.default_store`
+    remains available for bare-process runs outside the platform (set
+    `store=default_store()` explicitly).
     `context_schema=PipelineContext` lets callers scope per-user via
     `graph.invoke(..., context=PipelineContext(user_id=...))`.
 
@@ -315,7 +314,7 @@ def build_deep_agent(model, *, backend, subagents=None, store=None, checkpointer
         subagents=subagents if subagents is not None else [prd_agent, bdd_agent, sdd_async_agent],
         backend=CompositeBackend(default=backend, routes=_memory_routes()),
         context_schema=PipelineContext,
-        store=store if store is not None else default_store(),
+        store=store,
         memory=MEMORY_SOURCES,
         interrupt_on=_build_interrupt_on(),
         middleware=[TodoListMiddleware()],

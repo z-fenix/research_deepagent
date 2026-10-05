@@ -21,6 +21,7 @@
     "remark-gfm": "^4.0.0"
   },
   "devDependencies": {
+    "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.0",
     "@types/node": "^22.10.2",
     "@types/react": "^18.3.12",

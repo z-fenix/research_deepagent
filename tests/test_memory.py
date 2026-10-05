@@ -149,33 +149,33 @@ def test_store_passthrough_to_graph(memory_module):
     assert AGENTS_MD in system_text
 
 
-def test_build_without_explicit_store_does_not_crash(monkeypatch, tmp_path):
-    """回归（2026-10-04 生产事故）：store=None 曾在 MemoryMiddleware.before_agent
-    崩溃（AttributeError NoneType.get）——生产接线不得依赖运行时注入 store。"""
+def test_bare_process_runs_need_explicit_store(monkeypatch, tmp_path):
+    """回归更新（2026-10-05 平台迁移 langgraph dev）：store 注入改由平台负责，
+    langgraph-api 甚至拒绝图上自带 custom store（GraphLoadError）。生产接线
+    回归 store=None；裸进程（无平台运行时）必须显式传 store——原 agentseek
+    无注入导致的 NoneType.get 事故（2026-10-04）由本测试的显式路径持续覆盖。"""
     monkeypatch.setenv("DOCS_WORKSPACE_DIR", str(tmp_path / "workspace"))
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    monkeypatch.setenv("AGENTSEEK_STORE_PATH", str(tmp_path / "store.db"))
     import importlib
 
     import research_deepagent.agent as agent_module
+    from research_deepagent.store import default_store
 
     importlib.reload(agent_module)
     model = _SystemCapturingChatModel(messages=iter([AIMessage(content="好的。")]))
-    # 生产原样接线：不传 store（修复前此处触发 NoneType.get）
+    store = default_store(path=tmp_path / "store.db")
+    store.setup()
+    store.put(("local-user", "memories"), "/preferences.md",
+              {"content": "# 用户偏好\n- 代码注释用中文", "encoding": "utf-8"})
     graph = agent_module.build_deep_agent(
         model=model,
         backend=agent_module.create_backend(root=tmp_path / "workspace"),
+        store=store,
     )
-    # 预置默认 store（与 build_deep_agent 内部打开的是同一文件）
-    seed = agent_module.default_store()
-    seed.setup()
-    seed.put(("local-user", "memories"), "/preferences.md",
-             {"content": "# 用户偏好\n- 代码注释用中文", "encoding": "utf-8"})
-
     result = graph.invoke(
         {"messages": [{"role": "user", "content": "你好"}]},
         context=PipelineContext(user_id="local-user"),
     )
     assert result["messages"][-1].content == "好的。"
     system_text = "\n".join(model.captured_system_texts)
-    assert "代码注释用中文" in system_text  # 默认 store 中的预置偏好已注入
+    assert "代码注释用中文" in system_text  # 显式 store 的预置偏好已注入

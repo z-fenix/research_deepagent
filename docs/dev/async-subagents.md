@@ -181,7 +181,7 @@ fake 模型脚本的适配要点（`_get_ls_params` provider 直通、
   `test_langgraph_json_registers_research_and_sdd_agent` 会失败作为提醒；
   确属有意为之需同步修订这些断言与异步纪律节。
 - **ASGI 进程内传输在本运行时不可用（2026-10-04 实证）**：`url=None` 时
-  `get_client` 走进程内 ASGI 传输，但 agentseek dev 不是 langgraph-api
+  `get_client` 走进程内 ASGI 传输，但 langgraph dev 不是 langgraph-api
   服务器，不向 langgraph_sdk 注册 ASGI app——httpx ASGI transport 拿到
   `app=None`，`start_async_task` 即报
   `TypeError: 'NoneType' object is not callable`（调用栈：

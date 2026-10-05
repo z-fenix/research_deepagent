@@ -10,7 +10,8 @@
 - **SDD**：每条用户故事一份设计文档（边界定义 / 接口契约 / 校验逻辑 / 异常边界处理 /
   测试审查定义）+ REQ↔US↔Scenario↔TestCase 四层追溯矩阵
 
-后端为 `create_deep_agent(...)` 图，经 `agentseek-api dev` 托管；前端流式展示
+后端为 `create_deep_agent(...)` 图，经 `langgraph dev`（langgraph-api 0.15+，
+满足 LangGraph Studio tracing 要求）托管；前端流式展示
 todos、工具卡片与最终 markdown 回复。AgentSeek 仅作为外部模板与生命周期工具，
 本项目行为声明在 `.agentseek/lifecycle.toml`。
 
@@ -21,9 +22,8 @@ cp .env.example .env
 cp frontend/.env.example frontend/.env
 $EDITOR .env          # 填模型凭据；可选填 PENCLI_MCP_URL
 
-uvx agentseek task sync
-uvx agentseek task frontend
-uvx agentseek dev
+uv sync                     # Python 3.14 venv，全部依赖最新版
+uv run langgraph dev --port 2024 --no-browser
 ```
 
 - LangGraph 后端默认 `http://127.0.0.1:2024`
