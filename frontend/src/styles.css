@@ -775,7 +775,8 @@ body { margin: 0; }
   width: 100%;
   overflow: hidden;
 }
-.frame__sidebar { overflow-y: auto; min-width: 0; }
+/* 侧栏列自身不滚动：唯一滚动域是 .sidebar__list，保证 footer 恒可见 */
+.frame__sidebar { overflow: hidden; min-width: 0; }
 .frame__center { overflow-y: auto; min-width: 0; display: flex; flex-direction: column; }
 /* 不裁剪：轨道收起（宽 0）时 rail affordance 以绝对定位从右缘探出（C1） */
 .frame__rightbar { position: relative; }
