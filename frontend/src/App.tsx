@@ -47,6 +47,15 @@ function AgentWorkspace(): ReactNode {
   const tasks: AsyncTaskView[] = useMemo(() => readAsyncTasks(stream.values), [stream.values]);
   // 客户端时间戳捕获（spec §5.3）：仅实时流有；历史回放 → Timeline 时间模式禁用。
   const msgTimestamps = useMessageTimestamps(stream.messages);
+  // Composer 卡片下方 turns/steps 统计（Task 2）：由现有 deriveTrajectory 派生，数据层不动。
+  const trajectoryTurns = useMemo(() => deriveTrajectory(stream.messages), [stream.messages]);
+  const composerStats = useMemo(
+    () => ({
+      turns: trajectoryTurns.length,
+      steps: trajectoryTurns.reduce((total, turn) => total + turn.steps.length, 0),
+    }),
+    [trajectoryTurns],
+  );
   useAutoOpenRunningTask(
     tasks,
     useCallback(
@@ -88,7 +97,7 @@ function AgentWorkspace(): ReactNode {
         title: "Trajectory",
         render: () => (
           <TrajectoryView
-            turns={deriveTrajectory(stream.messages)}
+            turns={trajectoryTurns}
             timestamps={msgTimestamps}
             messages={stream.messages}
           />
@@ -118,6 +127,7 @@ function AgentWorkspace(): ReactNode {
       stream.submitApproval,
       stream.messages,
       msgTimestamps,
+      trajectoryTurns,
     ],
   );
 
@@ -178,6 +188,7 @@ function AgentWorkspace(): ReactNode {
               disabled={stream.pendingApproval != null}
               onSubmit={stream.submit}
               onStop={stream.stop}
+              stats={composerStats}
             />
           </>
         }

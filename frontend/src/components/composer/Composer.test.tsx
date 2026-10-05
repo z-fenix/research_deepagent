@@ -70,4 +70,45 @@ describe("Composer", () => {
     fireEvent.click(send);
     expect(onSubmit).not.toHaveBeenCalled();
   });
+
+  it("renders the decorative attach button as disabled", () => {
+    render(<Composer isLoading={false} onSubmit={vi.fn()} onStop={vi.fn()} />);
+    const attach = screen.getByLabelText("Attach files") as HTMLButtonElement;
+    expect(attach.disabled).toBe(true);
+    expect(attach.title).toBe("Attachments not supported yet");
+  });
+
+  it("renders a static workspace chip and model label", () => {
+    const { container } = render(
+      <Composer isLoading={false} onSubmit={vi.fn()} onStop={vi.fn()} />,
+    );
+    expect(screen.getByText("⚙ Workspace Write").tagName).toBe("SPAN");
+    const model = container.querySelector(".composer-card__model");
+    expect(model?.textContent).toBe("gpt-4.1-mini High ▾");
+  });
+
+  it("disables the send button while the draft is empty", () => {
+    render(<Composer isLoading={false} onSubmit={vi.fn()} onStop={vi.fn()} />);
+    const send = screen.getByLabelText("Send message") as HTMLButtonElement;
+    expect(send.disabled).toBe(true);
+  });
+
+  it("renders run stats below the card when stats are provided", () => {
+    render(
+      <Composer
+        isLoading={false}
+        onSubmit={vi.fn()}
+        onStop={vi.fn()}
+        stats={{ turns: 1, steps: 2 }}
+      />,
+    );
+    expect(screen.getByText(/1 turns 2 steps/).textContent).toBe("⏱ 1 turns 2 steps");
+  });
+
+  it("does not render the stats line without stats", () => {
+    const { container } = render(
+      <Composer isLoading={false} onSubmit={vi.fn()} onStop={vi.fn()} />,
+    );
+    expect(container.querySelector(".composer-stats")).toBeNull();
+  });
 });

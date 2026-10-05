@@ -330,41 +330,107 @@ body { margin: 0; }
   margin: 0 auto;
   padding: 0.75rem 1rem 1rem;
   display: flex;
-  align-items: flex-end;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 0.35rem;
 }
 
-.composer__input {
-  flex: 1;
-  resize: none;
+/* harness 参照：大圆角卡片包 textarea + 控件行（Task 2）。
+   审批守卫语义沿用：textarea:disabled 与发送钮 :disabled 同步呈禁用态。 */
+.composer-card {
   border: 1px solid var(--app-border-l2);
-  border-radius: var(--app-radius-md);
+  border-radius: 18px;
   background: var(--app-bg-base);
+  box-shadow: var(--app-shadow-lv1);
+  padding: 0.7rem 0.8rem 0.55rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.composer-card:focus-within {
+  border-color: var(--app-accent);
+}
+
+.composer-card__input {
+  resize: none;
+  border: 0;
+  background: transparent;
   color: var(--app-label-primary);
   font: inherit;
-  padding: 0.6rem 0.8rem;
+  padding: 0;
   line-height: 24px;
   overflow-y: auto;
 }
-.composer__input:focus {
+.composer-card__input:focus {
   outline: none;
-  border-color: var(--app-accent);
-  box-shadow: var(--app-shadow-lv1);
 }
-.composer__input::placeholder { color: var(--app-label-caption); }
+.composer-card__input:disabled {
+  cursor: not-allowed;
+  color: var(--app-label-caption);
+}
+.composer-card__input::placeholder { color: var(--app-label-caption); }
 
-.composer__button {
+.composer-card__row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.composer-card__attach {
+  border: 1px solid var(--app-border-l2);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--app-label-primary);
+  font: inherit;
+}
+.composer-card__attach:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.composer-card__chip {
+  border: 1px solid var(--app-border-l2);
+  border-radius: 999px;
+  padding: 0.18rem 0.65rem;
+  font-size: 0.8em;
+  color: var(--app-label-primary);
+  white-space: nowrap;
+}
+
+.composer-card__spacer { flex: 1; }
+
+.composer-card__model {
+  color: var(--app-label-caption);
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+
+.composer-card__send {
   border: 0;
-  border-radius: var(--app-radius-md);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: var(--app-accent);
   color: var(--app-label-on-accent);
-  padding: 0.6rem 1.1rem;
   font: inherit;
   cursor: pointer;
 }
-.composer__button:hover:not(:disabled) { background: var(--app-accent-hover); }
-.composer__button:disabled { opacity: 0.5; cursor: not-allowed; }
-.composer__button--stop { background: var(--app-state-error); }
+.composer-card__send:hover:not(:disabled) { background: var(--app-accent-hover); }
+.composer-card__send:disabled { opacity: 0.5; cursor: not-allowed; }
+.composer-card__send--stop { background: var(--app-state-error); }
+
+.composer-stats {
+  margin: 0;
+  text-align: center;
+  font-size: 0.8em;
+  color: var(--app-label-caption);
+}
 
 @keyframes activity-pulse {
   0%, 80%, 100% {
