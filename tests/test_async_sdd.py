@@ -160,22 +160,35 @@ def test_orchestrator_state_schema_declares_async_tasks(built_graph):
 
 
 def test_sdd_async_subagent_spec(built_agent_module):
-    """默认 subagents 中的 sdd 条目为 AsyncSubAgent（graph_id 指向独立图）。
+    """默认 subagents 中的 sdd 条目为 AsyncSubAgent（graph_id + HTTP url）。
 
-    create_deep_agent 按 ``"graph_id" in spec`` 识别异步条目；不传 url 走
-    ASGI 进程内传输（同部署）。描述沿用原 sdd-agent 描述并注明后台异步
-    执行与回收方式。
+    create_deep_agent 按 ``"graph_id" in spec`` 识别异步条目。url 必填：
+    agentseek dev 不是 langgraph-api 服务器，ASGI 进程内传输拿到的 app 为
+    None（2026-10-04 实测 "'NoneType' object is not callable"），必须走
+    HTTP 传输自指 agentseek 自身的 Agent Protocol 端点。
     """
     agent_module, _ = built_agent_module
     spec = agent_module.sdd_async_agent
     assert spec["name"] == "sdd-agent"
     assert spec["graph_id"] == "sdd-agent"
-    assert "url" not in spec
+    assert spec["url"] == "http://127.0.0.1:2024"
     assert "后台异步执行" in spec["description"]
     assert "check_async_task" in spec["description"]
     # 同步 prd/bdd 字典不携带 graph_id（仍走同步 task 工具）
     assert "graph_id" not in agent_module.prd_agent
     assert "graph_id" not in agent_module.bdd_agent
+
+
+def test_sdd_agent_url_env_override(monkeypatch):
+    """AGENTSEEK_API_URL 覆盖 sdd-agent 的自指端点（端口/主机可配）。"""
+    import importlib
+
+    import research_deepagent.agent as agent_module
+
+    monkeypatch.setenv("AGENTSEEK_API_URL", "http://127.0.0.1:9999")
+    reloaded = importlib.reload(agent_module)
+    assert reloaded.sdd_async_agent["url"] == "http://127.0.0.1:9999"
+    importlib.reload(agent_module)  # 还原，避免影响后续测试
 
 
 def test_orchestrator_prompt_declares_async_discipline():

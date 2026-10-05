@@ -61,7 +61,7 @@ Orchestrator（create_deep_agent + ORCHESTRATOR_INSTRUCTIONS）
 
 ### 4.1 HarnessProfile 注册
 
-`src/research_deepagent/agent.py:151`（模块层，紧跟 `model = init_chat_model(...)`
+`src/research_deepagent/agent.py:158`（模块层，紧跟 `model = init_chat_model(...)`
 之后）：
 
 ```python
@@ -118,7 +118,7 @@ register_harness_profile(
 
 ### 4.3 子 Agent 接线
 
-三个子 Agent 在 `src/research_deepagent/agent.py:165` 起（`prd_agent` /
+三个子 Agent 在 `src/research_deepagent/agent.py:190` 起（`prd_agent` /
 `bdd_agent` / `sdd_agent` 字典）声明，每个 spec 含：
 
 - `name` / `description`：description 会进入 task 工具的「Available agent
@@ -131,7 +131,7 @@ register_harness_profile(
 
 spec 未声明 `model` 时默认沿用主 Agent 的模型（deepagents 在装配时以
 `spec.get("model", model)` 兜底）；`build_deep_agent()`
-（`agent.py:198`）把它们注入 `create_deep_agent(subagents=[...])`。
+（`agent.py:311`）把它们注入 `create_deep_agent(subagents=[...])`。
 
 ### 4.4 「完成标准」与 schema 的同步契约
 
@@ -199,7 +199,7 @@ sdd 独立图与异步委派侧的测试（`tests/test_async_sdd.py`）复用同
      并加入 `build_deep_agent` 的默认 `subagents=[...]` 列表；
   3. 在 `prompts.py` 写对应指令，含逐字段的「完成标准」一节，并同步扩展
      `test_subagent_prompts_declare_schema_fields` 的断言（同步契约见 4.4）。
-- **恢复 general-purpose 子 Agent**：删除 `agent.py:151` 的
+- **恢复 general-purpose 子 Agent**：删除 `agent.py:158` 的
   `register_harness_profile(...)` 调用（或把 `enabled` 改回 `True`）即可——
   deepagents 默认就会附加 general-purpose。注意这会重新打开绕过阶段结构的
   后门，`test_task_tool_exposes_only_named_subagents` 与
@@ -218,7 +218,7 @@ sdd 独立图与异步委派侧的测试（`tests/test_async_sdd.py`）复用同
 | 症状 | 排查方向 |
 |---|---|
 | 编排者自行撰写阶段文档、不委派 | 委派纪律是提示词约束：检查 `ORCHESTRATOR_INSTRUCTIONS` 的「委派纪律（task）」一节（`prompts.py:48`）是否被改动；契约测试 `test_orchestrator_prompt_declares_delegation_conventions` 失败即提示漂移 |
-| task 工具列表出现 general-purpose | 检查 `agent.py:151` 的 HarnessProfile 注册是否还在；测试环境下另查 `_get_ls_params` 是否仍返回 `agent_module.MODEL_PROVIDER`（provider 不匹配则 profile 不命中） |
+| task 工具列表出现 general-purpose | 检查 `agent.py:158` 的 HarnessProfile 注册是否还在；测试环境下另查 `_get_ls_params` 是否仍返回 `agent_module.MODEL_PROVIDER`（provider 不匹配则 profile 不命中） |
 | 结构化返回解析失败 / 回传了自由文本 | 检查模型是否支持原生结构化输出（ProviderStrategy）：不支持的模型 langchain 会退化为 ToolStrategy，子 Agent 需以结构化工具调用而非纯文本收尾；再检查 spec 的 `response_format` 是否被移除（缺失即透传原始文本） |
 | 编排者收到的报告缺字段 / 字段语义不符 | prompts「完成标准」与 `schemas.py` 漂移：运行 `test_subagent_prompts_declare_schema_fields`，按 4.4 同步两侧 |
 | task 工具描述里仍能看到 "general-purpose" 字样 | 属上游残留：deepagents 的静态使用说明会无条件提及该词，与是否暴露该子 Agent 无关；以「Available agent types」列表段为准（测试也只断言该段），编排者实际无法委派给它 |
