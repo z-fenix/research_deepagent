@@ -24,6 +24,9 @@ $EDITOR .env          # 填模型凭据；可选填 PENCLI_MCP_URL
 
 uv sync                     # Python 3.14 venv，全部依赖最新版
 uv run langgraph dev --port 2024 --no-browser
+
+# 前端（新开一个终端）
+cd frontend && npm install && npm run dev   # http://127.0.0.1:5174
 ```
 
 - LangGraph 后端默认 `http://127.0.0.1:2024`
