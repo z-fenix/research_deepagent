@@ -564,6 +564,9 @@ body { margin: 0; }
   display: flex;
   flex-direction: column;
   height: 100%;
+  /* 无全局 box-sizing（content-box）：不收敛会把 100% + 2rem padding 溢出网格单元，
+     被 .frame__sidebar 的 overflow:hidden 裁掉 footer */
+  box-sizing: border-box;
   gap: 0.75rem;
   padding: 1rem 0.75rem;
   border-right: 1px solid var(--app-border-l1);
