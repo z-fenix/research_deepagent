@@ -1,6 +1,6 @@
 // frontend/src/panels/subagent-tasks.ts
 // 父图 state 的 async_tasks 读取（spec §2.2：deepagents
-// async_subagents.py:80-135 AsyncTask{task_id（=thread_id）, thread_id, status, started_at}）。
+// async_subagents.py:80-135 AsyncTask{task_id（=thread_id）, thread_id, status, created_at}）。
 
 import { useEffect, useRef } from "react";
 

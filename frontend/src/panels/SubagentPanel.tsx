@@ -88,17 +88,18 @@ export function SubagentPanel(props: {
   onActivate: (taskId: string | null) => void;
 }): ReactNode {
   const tabs = deriveSubagentTabs(props.tasks);
-  if (tabs.length === 0) {
-    return <p className="panel-host__empty">No async sub-agent tasks yet</p>;
-  }
-  const active = tabs.find((t) => t.taskId === props.activeTaskId) ?? null;
+  // hooks 必须无条件执行（Rule of Hooks）：面板常挂载，先空后有的转换会增减 hook 数
   const [now, setNow] = useState(Date.now());
-  const hasRunning = tabs.some((t) => t.status === "running");
+  const hasRunning = props.tasks.some((t) => t.status === "running");
   useEffect(() => {
     if (!hasRunning) return;
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, [hasRunning]);
+  if (tabs.length === 0) {
+    return <p className="panel-host__empty">No async sub-agent tasks yet</p>;
+  }
+  const active = tabs.find((t) => t.taskId === props.activeTaskId) ?? null;
   if (active !== null) {
     return (
       <div className="subagent-panel subagent-panel--detail">

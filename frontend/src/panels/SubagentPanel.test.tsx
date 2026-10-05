@@ -71,6 +71,22 @@ describe("SubagentPanel (list layout)", () => {
     expect(screen.getByRole("button", { name: /open sub-agent 分析工具体系与扩展架构/i })).toBeTruthy();
   });
 
+  it("survives the empty-to-populated transition in one mounted instance (Rule of Hooks)", () => {
+    const { rerender } = render(
+      <SubagentPanel tasks={[]} launchInfo={{}} activeTaskId={null} onActivate={vi.fn()} />,
+    );
+    expect(screen.getByText("No async sub-agent tasks yet")).toBeTruthy();
+    rerender(
+      <SubagentPanel
+        tasks={[running]}
+        launchInfo={launchInfo}
+        activeTaskId={null}
+        onActivate={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("1 sub-agents")).toBeTruthy();
+  });
+
   it("falls back to the task-id prefix title when launch info is missing", () => {
     render(
       <SubagentPanel tasks={[running]} launchInfo={{}} activeTaskId={null} onActivate={vi.fn()} />,
