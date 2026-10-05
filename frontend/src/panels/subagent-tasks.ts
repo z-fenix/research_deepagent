@@ -9,7 +9,11 @@ export type AsyncTaskView = {
   threadId: string;
   status: string;
   startedAt: string | null;
+  lastUpdatedAt: string | null;
 };
+
+/** 单条子任务在列表里的展示信息（来自父线程 start_async_task 工具调用）。 */
+export type LaunchInfo = { title: string; excerpt: string };
 
 /** 从 stream.values 守卫式读取 async_tasks：缺失/空/畸形（非对象、缺 thread_id/status）→ []。 */
 export function readAsyncTasks(values: unknown): AsyncTaskView[] {
@@ -28,6 +32,7 @@ export function readAsyncTasks(values: unknown): AsyncTaskView[] {
       threadId,
       status,
       startedAt: typeof task.started_at === "string" ? task.started_at : null,
+      lastUpdatedAt: typeof task.last_updated_at === "string" ? task.last_updated_at : null,
     });
   }
   return tasks;
@@ -60,4 +65,60 @@ export function useAutoOpenRunningTask(
       onOpenRef.current(task.taskId);
     }
   }, [tasks]);
+}
+
+/**
+ * 从父线程消息提取 start_async_task 的展示信息：ToolMessage 结果文本
+ * （"Launched async subagent. task_id: X"）把调用与其 task_id 关联。
+ * 无匹配或畸形 → 该字段回退 task_id 前缀（列表渲染兜底）。
+ */
+export function extractLaunchInfo(messages: unknown[]): Record<string, LaunchInfo> {
+  const argsByCall = new Map<string, Record<string, unknown>>();
+  const info: Record<string, LaunchInfo> = {};
+  for (const msg of messages) {
+    if (msg === null || typeof msg !== "object") continue;
+    const m = msg as Record<string, unknown>;
+    if (m.type === "ai" && Array.isArray(m.tool_calls)) {
+      for (const call of m.tool_calls) {
+        if (call === null || typeof call !== "object") continue;
+        const c = call as Record<string, unknown>;
+        if (c.name !== "start_async_task" || typeof c.id !== "string") continue;
+        argsByCall.set(
+          c.id,
+          c.args !== null && typeof c.args === "object" ? (c.args as Record<string, unknown>) : {},
+        );
+      }
+      continue;
+    }
+    if (m.type === "tool" && typeof m.tool_call_id === "string" && argsByCall.has(m.tool_call_id)) {
+      const args = argsByCall.get(m.tool_call_id)!;
+      const result = typeof m.content === "string" ? m.content : "";
+      const match = result.match(/task_id:\s*(\S+)/);
+      if (match === null) continue;
+      const taskId = match[1]!;
+      const description = typeof args.description === "string" ? args.description.trim() : "";
+      info[taskId] = {
+        title: description || `sdd-agent ${taskId.slice(0, 8)}`,
+        excerpt: description,
+      };
+    }
+  }
+  return info;
+}
+
+/** 列表耗时标签：完成/终止 = 区间时长；运行中 = 至当前的时刻。畸形输入 → null。 */
+export function durationLabel(
+  startedAt: string | null,
+  lastUpdatedAt: string | null,
+  now: number,
+): string | null {
+  if (startedAt === null) return null;
+  const start = Date.parse(startedAt);
+  if (Number.isNaN(start)) return null;
+  const end = lastUpdatedAt === null ? now : Date.parse(lastUpdatedAt);
+  if (Number.isNaN(end) || end < start) return null;
+  const total = Math.max(0, Math.round((end - start) / 1000));
+  const minutes = Math.floor(total / 60);
+  const seconds = total % 60;
+  return minutes > 0 ? `${minutes}m ${String(seconds).padStart(2, "0")}s` : `${seconds}s`;
 }

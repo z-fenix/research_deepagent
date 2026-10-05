@@ -927,3 +927,59 @@ body { margin: 0; }
 .badge--user { background: #f1f5f9; color: #475569; }
 .ledger__row--turn-header button { display: flex; align-items: center; gap: 6px; text-align: left; }
 .ledger__assistant { display: flex; align-items: baseline; gap: 6px; }
+
+/* sub-agent list panel（task12：参照 deepseek-harness 子智能体列表） */
+.subagent-panel { display: flex; flex-direction: column; height: 100%; gap: 0.4rem; }
+.subagent-panel__head {
+  font-size: 0.85rem; font-weight: 600; color: var(--app-label-primary);
+  padding: 0.2rem 0.2rem 0.4rem; border-bottom: 1px solid var(--app-border-l1);
+}
+.subagent-panel__list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.3rem; }
+.subagent-row {
+  display: flex; align-items: center; gap: 0.5rem;
+  border: 1px solid var(--app-border-l1); border-radius: var(--app-radius-md);
+  background: var(--app-bg-base); padding: 0.5rem 0.5rem 0.5rem 0.65rem;
+}
+.subagent-row:hover { border-color: var(--app-border-l2); background: var(--app-bg-layer-2); }
+.subagent-row__dot {
+  width: 0.5rem; height: 0.5rem; border-radius: 999px; flex-shrink: 0;
+  background: var(--app-state-success);
+}
+.subagent-row[data-status="running"] .subagent-row__dot {
+  animation: subagent-pulse 1.2s infinite ease-in-out;
+}
+.subagent-row[data-status="error"] .subagent-row__dot { background: var(--app-state-error); }
+.subagent-row[data-status="cancelled"] .subagent-row__dot { background: var(--app-label-tertiary); }
+@keyframes subagent-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.subagent-row__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.subagent-row__title {
+  font-weight: 600; font-size: 0.9rem; color: var(--app-label-primary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.subagent-row__meta { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+.subagent-row__excerpt {
+  flex: 1; min-width: 0; font-size: 0.76rem; color: var(--app-label-tertiary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.subagent-row__badges {
+  flex-shrink: 0; font-size: 0.72rem; color: var(--app-label-secondary);
+  border: 1px solid var(--app-border-l1); border-radius: 999px; padding: 0.05rem 0.45rem;
+}
+.subagent-row__side { display: flex; align-items: center; gap: 0.35rem; flex-shrink: 0; }
+.subagent-row__duration { font-size: 0.76rem; color: var(--app-label-secondary); }
+.subagent-row__open {
+  border: 0; background: transparent; color: var(--app-label-tertiary);
+  font-size: 1rem; line-height: 1; cursor: pointer; padding: 0.2rem 0.35rem;
+  border-radius: var(--app-radius-sm);
+}
+.subagent-row__open:hover { background: var(--app-bg-accent-soft); color: var(--app-label-primary); }
+.subagent-panel--detail { gap: 0.5rem; }
+.subagent-panel__back {
+  align-self: flex-start; border: 1px solid var(--app-border-l1); border-radius: var(--app-radius-sm);
+  background: transparent; color: var(--app-label-secondary); font: inherit; font-size: 0.8rem;
+  padding: 0.25rem 0.6rem; cursor: pointer;
+}
+.subagent-panel__back:hover { color: var(--app-label-primary); background: var(--app-bg-layer-2); }
+.subagent-panel__thread { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.4rem; }
+.subagent-panel__row { font-size: 0.85rem; color: var(--app-label-primary); }
+.subagent-panel__error { display: flex; align-items: center; gap: 0.6rem; color: var(--app-state-error); }

@@ -21,7 +21,7 @@ import { AppFrame } from "./layout/AppFrame";
 import { useFrameLayout } from "./layout/useFrameLayout";
 import { PanelHost, readActivePanel, type PanelDef, type PanelId } from "./panels/PanelHost";
 import { SubagentPanel } from "./panels/SubagentPanel";
-import { readAsyncTasks, useAutoOpenRunningTask, type AsyncTaskView } from "./panels/subagent-tasks";
+import { extractLaunchInfo, readAsyncTasks, useAutoOpenRunningTask, type AsyncTaskView } from "./panels/subagent-tasks";
 import Sidebar from "./components/shell/Sidebar";
 import ThemeSettingsDialog from "./components/shell/ThemeSettingsDialog";
 import Composer from "./components/composer/Composer";
@@ -58,13 +58,14 @@ function AgentWorkspace(): ReactNode {
     }),
     [trajectoryTurns],
   );
+  const launchInfo = useMemo(() => extractLaunchInfo(stream.messages), [stream.messages]);
   useAutoOpenRunningTask(
     tasks,
     useCallback(
-      (taskId: string) => {
+      () => {
+        // task12：自动打开右栏并定位到列表（高亮由状态点承担），不直接跳详情
         actions.openRightbar(window.innerWidth);
         setActivePanel("subagents");
-        setActiveSubagentTask(taskId);
       },
       [actions],
     ),
@@ -101,6 +102,7 @@ function AgentWorkspace(): ReactNode {
         render: () => (
           <SubagentPanel
             tasks={tasks}
+            launchInfo={launchInfo}
             activeTaskId={activeSubagentTask}
             onActivate={setActiveSubagentTask}
           />
