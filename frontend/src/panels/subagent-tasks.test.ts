@@ -8,7 +8,7 @@ describe("readAsyncTasks", () => {
   it("reads well-formed async_tasks", () => {
     const values = {
       async_tasks: {
-        "t-1": { task_id: "t-1", thread_id: "t-1", status: "running", started_at: "2026-10-04T00:00:00Z", last_updated_at: "2026-10-04T00:05:00Z" },
+        "t-1": { task_id: "t-1", thread_id: "t-1", status: "running", created_at: "2026-10-04T00:00:00Z", last_updated_at: "2026-10-04T00:05:00Z" },
         "t-2": { task_id: "t-2", thread_id: "t-2", status: "success" },
       },
     };

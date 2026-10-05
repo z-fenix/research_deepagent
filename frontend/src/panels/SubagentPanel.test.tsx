@@ -68,7 +68,7 @@ describe("SubagentPanel (list layout)", () => {
     expect(document.querySelector('[data-status="success"]')).toBeTruthy();
     expect(screen.getAllByText(/read-only · running/)).toHaveLength(1);
     expect(screen.getAllByText(/read-only · completed/)).toHaveLength(1);
-    expect(screen.getByRole("button", { name: /open sub-agent t-1/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /open sub-agent 分析工具体系与扩展架构/i })).toBeTruthy();
   });
 
   it("falls back to the task-id prefix title when launch info is missing", () => {
@@ -92,7 +92,7 @@ describe("SubagentPanel (list layout)", () => {
     expect(screen.queryByTestId("subagent-body-t-1")).toBeNull();
     expect(capturedStreamOptions?.threadId).toBeUndefined();
 
-    fireEvent.click(screen.getByRole("button", { name: /open sub-agent t-1/i }));
+    fireEvent.click(screen.getByRole("button", { name: /open sub-agent 分析工具体系与扩展架构/i }));
     expect(onActivate).toHaveBeenCalledWith("t-1");
 
     rerender(

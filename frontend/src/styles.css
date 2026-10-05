@@ -943,8 +943,9 @@ body { margin: 0; }
 .subagent-row:hover { border-color: var(--app-border-l2); background: var(--app-bg-layer-2); }
 .subagent-row__dot {
   width: 0.5rem; height: 0.5rem; border-radius: 999px; flex-shrink: 0;
-  background: var(--app-state-success);
+  background: var(--app-label-tertiary);
 }
+.subagent-row[data-status="success"] .subagent-row__dot { background: var(--app-state-success); }
 .subagent-row[data-status="running"] .subagent-row__dot {
   animation: subagent-pulse 1.2s infinite ease-in-out;
 }

@@ -31,7 +31,13 @@ export function readAsyncTasks(values: unknown): AsyncTaskView[] {
       taskId: typeof task.task_id === "string" ? task.task_id : key,
       threadId,
       status,
-      startedAt: typeof task.started_at === "string" ? task.started_at : null,
+      // 后端真实字段是 created_at（async_subagents.py:91）；started_at 仅作容错
+      startedAt:
+        typeof task.created_at === "string"
+          ? task.created_at
+          : typeof task.started_at === "string"
+            ? task.started_at
+            : null,
       lastUpdatedAt: typeof task.last_updated_at === "string" ? task.last_updated_at : null,
     });
   }

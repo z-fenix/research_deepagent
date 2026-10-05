@@ -3,7 +3,7 @@
 // 徽标/耗时/箭头）+ 详情态（只读子线程流 + 返回）。只读无 composer（对齐
 // 参照 SubagentReadOnlyComposer 语义）；错误条 + 重试（spec §7）。
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { messageText } from "../lib/messages";
 import {
   deriveSubagentTabs,
@@ -44,11 +44,17 @@ function SubagentThreadBody({ threadId }: { threadId: string }): ReactNode {
 function SubagentRow(props: {
   task: AsyncTaskView;
   info: LaunchInfo | undefined;
+  now: number;
   onOpen: (taskId: string) => void;
 }): ReactNode {
   const { task, info } = props;
   const status = STATUS_LABEL[task.status] ?? task.status;
-  const duration = durationLabel(task.startedAt, task.lastUpdatedAt, Date.now());
+  // 运行中不传 last_updated_at（后端在状态变更前恒等于 created_at）→ 按当前时刻计时
+  const duration = durationLabel(
+    task.startedAt,
+    task.status === "running" ? null : task.lastUpdatedAt,
+    props.now,
+  );
   return (
     <div className="subagent-row" data-status={task.status}>
       <span className="subagent-row__dot" aria-hidden="true" />
@@ -64,7 +70,8 @@ function SubagentRow(props: {
         <button
           type="button"
           className="subagent-row__open"
-          aria-label={`Open sub-agent ${task.taskId}`}
+          aria-label={`Open sub-agent ${info?.title ?? task.taskId}`}
+          title={info?.title ?? task.taskId}
           onClick={() => props.onOpen(task.taskId)}
         >
           ›
@@ -85,6 +92,13 @@ export function SubagentPanel(props: {
     return <p className="panel-host__empty">No async sub-agent tasks yet</p>;
   }
   const active = tabs.find((t) => t.taskId === props.activeTaskId) ?? null;
+  const [now, setNow] = useState(Date.now());
+  const hasRunning = tabs.some((t) => t.status === "running");
+  useEffect(() => {
+    if (!hasRunning) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [hasRunning]);
   if (active !== null) {
     return (
       <div className="subagent-panel subagent-panel--detail">
@@ -110,6 +124,7 @@ export function SubagentPanel(props: {
             key={task.taskId}
             task={task}
             info={props.launchInfo[task.taskId]}
+            now={now}
             onOpen={props.onActivate}
           />
         ))}

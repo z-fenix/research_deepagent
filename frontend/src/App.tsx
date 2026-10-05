@@ -118,9 +118,7 @@ function AgentWorkspace(): ReactNode {
         ),
       },
     ],
-    [
-      tasks,
-      activeSubagentTask,
+    [tasks, launchInfo, activeSubagentTask,
       stream.pendingApproval,
       stream.approvalError,
       stream.todos,
